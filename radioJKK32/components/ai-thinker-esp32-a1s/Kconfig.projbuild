@@ -1,0 +1,38 @@
+menu "Custom Audio Board"
+
+choice CUSTOM_AUDIO_BOARD
+    prompt "Select a custom audio board"
+    default AI_THINKER_ESP32_A1S_ES8388_VARIANT_5
+    help
+        Select an audio board to use with the ESP-ADF
+
+    # TODO add more variants, see https://github.com/pschatzmann/arduino-audiokit/tree/main/src/audio_board
+    config AI_THINKER_ESP32_A1S_ES8388_VARIANT_7
+        bool "Ai Thinker ESP32 A1S Audio Kit (ES8388, variant 7)"
+    config AI_THINKER_ESP32_A1S_ES8388_VARIANT_5
+        bool "Ai Thinker ESP32 A1S Audio Kit (ES8388, variant 5)"
+endchoice
+
+choice
+    prompt "Select button type"
+    default AI_THINKER_ESP32_A1S_ES8388_BUTTON_KEY_GPIO
+    help
+        The board supports two type of buttons; GPIO or ADC.
+
+        With GPIO type, key inputs are handled by GPIO pins.
+
+        With ADC type, key inputs are handled by a single ADC pin. However,
+        the board must have necessary resistors (R60 - R64) soldered. Check
+        the board first.
+    config AI_THINKER_ESP32_A1S_ES8388_BUTTON_KEY_GPIO
+        bool "Use GPIO pins for key inputs"
+    config AI_THINKER_ESP32_A1S_ES8388_BUTTON_KEY_ADC
+        bool "Use an ADC pin for key inputs (don't work if resistors are not soldered)"
+endchoice
+
+config AI_THINKER_ESP32_A1S_AUDIO_KIT_USING_SDCARD
+    bool "Use on-board SD card"
+    default y
+    help
+        Choose y to use on-board SD card.
+endmenu

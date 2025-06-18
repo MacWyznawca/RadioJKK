@@ -1,0 +1,8 @@
+http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław - Public Radio;0;5
+http://stream2.nadaje.com:9228/ram.aac;RAM;Radio RAM;0;1
+http://stream2.nadaje.com:9238/rwkultura.aac;RWK;Radio Wrocław Kultura;1;1
+http://mp3.polskieradio.pl:8904/;Trójka;Polskie Radio Program Trzeci;0;1
+http://mp3.polskieradio.pl:8902/;Jedynka;Polskie Radio Program Pierwszy;0;1
+http://redir.atmcdn.pl/sc/o2/Eurozet/live/audio.livx;Zet;Radio Zet
+http://stream.radioluz.pl:8000/luzlofi.ogg;Luz;Akademickie Radio Luz
+# http://stream4.nadaje.com:9240/prw;RW MP3;Radio Wrocław MP3 Stream;0;5

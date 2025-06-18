@@ -1,0 +1,48 @@
+.config
+*.o
+*.pyc
+
+./radioJKK32/build
+./radioJKK32/build/*
+
+radioJKK32/managed_components
+radioJKK32/managed_components/*
+
+# LuON_Base/JkkMQTT/broker
+# LuON_Base/JkkMQTT/broker/*
+
+*/build
+*/build/*
+
+# emacs
+.dir-locals.el
+
+# eclipse setting
+.settings
+
+*.bin
+
+.code-workspace
+*.code-workspace
+
+radioJKK32/sdkconfig
+radioJKK32/sdkconfig.old
+
+# Doc build artifacts
+docs/*/_build/
+docs/*/doxygen-warning-log.txt
+docs/*/sphinx-warning-log.txt
+docs/*/sphinx-warning-log-sanitized.txt
+docs/*/xml/
+docs/*/xml_in/
+docs/*/man/
+docs/doxygen_sqlite3.db
+
+# MacOS directory files
+.DS_Store
+
+# Patch files
+# *.patch
+
+#CTags
+tags

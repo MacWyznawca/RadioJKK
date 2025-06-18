@@ -1,0 +1,28 @@
+menu "Example Configuration"
+
+config WIFI_SSID
+    string "WiFi SSID"
+	default "myssid"
+	help
+		SSID (network name) for the example to connect to.
+		Use 'settings.txt' in main folder of SD card to set the ssid at runtime in csv (separated by semicolon) format:
+		
+		myssid;mypassword
+		
+		Note: If the ssid is set in 'settings.txt', it will override this value
+		and the example will use the ssid from 'settings.txt'.
+
+config WIFI_PASSWORD
+    string "WiFi Password"
+	default "mypassword"
+	help
+		WiFi password (WPA or WPA2) for the example to use.
+		Use 'settings.txt' in main folder of SD card to set the password at runtime in csv (separated by semicolon) format:
+		
+		myssid;mypassword
+		
+		Note: If the password is set in 'settings.txt', it will override this value
+		and the example will use the password from 'settings.txt'.
+		Can be left blank if the network has no security set.
+
+endmenu
