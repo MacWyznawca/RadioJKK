@@ -1,6 +1,6 @@
 /* RadioJKK32 - Multifunction Internet Radio Player
  * Copyright (C) 2025 Jaromir Kopp (JKK)
- * i2s - output
+ * Audio Main Pipeline and elements
 */
 
 #include <string.h>

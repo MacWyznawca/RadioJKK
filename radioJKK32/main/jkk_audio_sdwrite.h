@@ -1,6 +1,6 @@
 /* RadioJKK32 - Multifunction Internet Radio Player
  * Copyright (C) 2025 Jaromir Kopp (JKK)
- * Audio Main Pipeline and elements
+ * Audio write to SD Pipeline and elements
 */
 
 #pragma once
