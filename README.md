@@ -21,6 +21,8 @@ Technical specifications:
 - MicroSD card slot  
 Example offer: [**AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_oB0P9NU) (affiliate)
 
+![AI Thinker ESP32-A1S](img/ESP32A1S.jpeg)
+
 MicroSD card (up to 64 GB)
 
 ## Using the Precompiled Binary:

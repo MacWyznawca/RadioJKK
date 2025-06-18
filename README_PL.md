@@ -20,6 +20,8 @@ Dane techniczne:
 - Złącze USB UART  
 - Gniazdo dla kart microSD  
 Przykładowa oferta: [**AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_oB0P9NU) (afiliacja)
+
+![AI Thinker ESP32-A1S](img/ESP32A1S.jpeg)
   
 Karta mikroSD (do 64 GB)  
   
