@@ -19,7 +19,7 @@ Dane techniczne:
 - Złącze dla akumulatora   
 - Złącze USB UART  
 - Gniazdo dla kart microSD  
-Przykładowa oferta: [**AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_oB0P9NU) (afiliacja)
+Przykładowa oferta: [**AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_onbBPzW) (afiliacja)
 
 ![AI Thinker ESP32-A1S](img/ESP32A1S.jpeg)
   

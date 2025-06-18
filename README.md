@@ -19,7 +19,7 @@ Technical specifications:
 - Battery connector  
 - USB UART connector  
 - MicroSD card slot  
-Example offer: [**AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_oB0P9NU) (affiliate)
+Example offer: [**AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_onbBPzW) (affiliate)
 
 ![AI Thinker ESP32-A1S](img/ESP32A1S.jpeg)
 
