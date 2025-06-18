@@ -20,7 +20,6 @@ radioJKK32/managed_components/*
 # eclipse setting
 .settings
 
-*.bin
 
 .code-workspace
 *.code-workspace
@@ -46,3 +45,6 @@ docs/doxygen_sqlite3.db
 
 #CTags
 tags
+
+.gitignore
+
