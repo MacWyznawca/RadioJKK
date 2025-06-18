@@ -62,6 +62,7 @@ Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/
 - **Klawisz 4** [krótko] następna stacja z listy, [długo] powrót do pozycji 1. Dioda miga zgodnie z numerem na liście.  
 - **Klawisz 3** [krótko] poprzednia stacja z listy, [długo] ulubiona (pierwsza ulubiona z listy). Dioda miga zgodnie z numerem na liście.  
 - **Klawisz 2** [krótko] rozpoczęcie nagrywania (dioda co 3 sekundy miga dwukrotnie), [długo] zakończenie nagrywania (dioda mika 3 razy).  
+- **Klawisz 1** [krótko] przejście do kolejnego ustawienia equalizera, [długo] powrót do ustawień bez korekcji.  
   
 Włożenie karty SD powoduje ponowne załadowanie listy stacji. W przypadku braku listy stacji używana jest domyślna.  
   
