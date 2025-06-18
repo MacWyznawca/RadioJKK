@@ -36,10 +36,9 @@ esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin
 myssid;mypassword
 ```
 
-- Create a plain text file `stations.txt` with a list of radio stations (up to 20) in CSV format (fields separated by semicolons).  
+- Create a plain text file `stations.txt` with a list of radio stations (up to 20) in CSV format (fields separated by semicolons) `url;short_name;description;favorite(1 or 0);type`.  
 Example format:  
 ```
-url;short_name;description;favorite(1 or 0);type
 http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław - Public Radio;0;5
 http://stream2.nadaje.com:9228/ram.aac;RAM;Radio RAM;0;1
 http://stream2.nadaje.com:9238/rwkultura.aac;RWK;Radio Wrocław Kultura;1;1

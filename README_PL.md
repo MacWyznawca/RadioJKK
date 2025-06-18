@@ -37,7 +37,7 @@ myssid;mypassword
 ```
   
 - Plik tekstowy (plain text) `stations.txt` z listą stacji radiowych (maksymalnie 20) w formacie csv (pola rozdzielone średnikiem).  
-url stacji;nazwa krótka;opis;1 lub 0 (ulubione);rodzaj np.:  
+`url stacji;nazwa krótka;opis;1 lub 0 (ulubione);rodzaj` np.:  
 ```
 http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław - Public Radio;0;5  
 http://stream2.nadaje.com:9228/ram.aac;RAM;Radio RAM;0;1  
