@@ -67,4 +67,4 @@ Repository: [ESP-ADF on GitHub](https://github.com/espressif/esp-adf)
 
 Inserting an SD card reloads the station list. If no list is found, the default list is used.
 
-Audio files are saved in the `rec/data_nagrania` folder, along with a text file containing the station name.
+Audio files are saved in the `rec/data_recording` folder with an additional common text file containing the audio file path, station name and recording start time.

@@ -66,5 +66,5 @@ Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/
   
 Włożenie karty SD powoduje ponowne załadowanie listy stacji. W przypadku braku listy stacji używana jest domyślna.  
   
-Pliki audio zapisywane są w folderze rec/data_nagrania z dodatkowym plikiem tekstowym zawierającym nazwę stacji.  
+Pliki audio zapisywane są w folderze `rec/data_nagrania` z dodatkowym wspólnym plikiem tekstowym zawierającym ścieżkę pliku audio, nazwę stacji i czas startu zapisu.  
 
