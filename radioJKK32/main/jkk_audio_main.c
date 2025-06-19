@@ -113,9 +113,6 @@ esp_err_t JkkAudioRestartStream(void) {
     }
     esp_err_t ret = audio_pipeline_stop(audioMain.pipeline);
     ret |= audio_pipeline_wait_for_stop(audioMain.pipeline);
- //   audio_element_reset_state(jkkRadio.audioMain->decoder);
- //   audio_element_reset_state(jkkRadio.audioMain->split);
- //   audio_element_reset_state(jkkRadio.audioMain->output);
     ret |= audio_pipeline_reset_ringbuffer(audioMain.pipeline);
     ret |= audio_pipeline_reset_items_state(audioMain.pipeline);
     ret |= audio_pipeline_run(audioMain.pipeline);
@@ -212,6 +209,11 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
             DEFAULT_ESP_WAV_DECODER_CONFIG(),
             DEFAULT_ESP_PCM_DECODER_CONFIG(),       
             DEFAULT_ESP_AAC_DECODER_CONFIG(),
+            DEFAULT_ESP_FLAC_DECODER_CONFIG(),
+            DEFAULT_ESP_AMRNB_DECODER_CONFIG(),
+            DEFAULT_ESP_AMRWB_DECODER_CONFIG(),
+            DEFAULT_ESP_OPUS_DECODER_CONFIG(),
+            DEFAULT_ESP_M4A_DECODER_CONFIG(),
         };
         esp_decoder_cfg_t auto_dec_cfg = DEFAULT_ESP_DECODER_CONFIG();
         audioMain.decoder = esp_decoder_init(&auto_dec_cfg, auto_decode, sizeof(auto_decode) / sizeof(audio_decoder_t));
