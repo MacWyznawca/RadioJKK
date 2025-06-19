@@ -1,25 +1,12 @@
-/*  RadioJKK32 - Multifunction Internet Radio Player
+/*  RadioJKK32 - Multifunction Internet Radio Player 
+ * 
+    1. RadioJKK32 is a multifunctional internet radio player designed to provide a seamless listening experience based on ESP-ADF.
+    2. It supports various audio formats and streaming protocols, allowing users to access a wide range of radio stations.
+    4. It includes advanced audio processing capabilities, such as equalization and resampling, to enhance the sound experience.
+    5. The device is built on the ESP32-A1S audio dev board, leveraging its powerful processing capabilities and connectivity options.
+    6. The project is open-source and licensed under the MIT License, allowing for free use, modification, and distribution.
+
  *  Copyright (C) 2025 Jaromir Kopp (JKK)
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
 */
 
 #include <string.h>
@@ -69,6 +56,7 @@
 #include "periph_button.h"
 
 #include "esp_random.h"
+#include <esp_timer.h>
 
 #include "esp_netif.h"
 
@@ -149,7 +137,7 @@ static esp_err_t JkkMakePath(time_t timeSet, char *path, char *ext){
     localtime_r(&timeSet, &timeinfo); 
 
     if(ext) {
-        sprintf(path, SD_RECORDS_PATH"/%02d-%02d-%02d/%02d_%02d_%02d.%3s", timeinfo.tm_year - 100, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, ext);
+        sprintf(path, SD_RECORDS_PATH"/%02d-%02d-%02d/%02d%02d%02d%02d.%3s", timeinfo.tm_year - 100, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, (uint8_t)((esp_timer_get_time() / 10000) % 100), ext);
         ESP_LOGI(TAG, "Mkdir path: %s", path);
     }
     else {
@@ -159,20 +147,25 @@ static esp_err_t JkkMakePath(time_t timeSet, char *path, char *ext){
     return ESP_OK;
 }
  
-static void JkkSdRecInfoWrite(time_t timeSet, const char *path){
+static void JkkSdRecInfoWrite(time_t timeSet, const char *path, const char *filePath){
     FILE *fptr;
-    char infoText[320] = {0};
-
-    fptr = fopen(path, "w");
+    char infoText[480] = {0};
+    char infoPath[48] = {0};
+    if(path == NULL) {
+        ESP_LOGE(TAG, "Invalid path or filePath");
+        return;
+    }   
+    strcpy(infoPath, path);
+    fptr = fopen(strcat(infoPath, "/info.txt"), "a");
     if (fptr == NULL) {
         ESP_LOGE(TAG, "Error opening file: %s", path);
         return;
     }
-
     struct tm timeinfo = { 0 };
     localtime_r(&timeSet, &timeinfo); 
 
-    sprintf(infoText, "%s – %s. Start: %04d-%02d-%02d, %02d.%02d.%02d",
+    sprintf(infoText, "%s;%s;%s;%04d-%02d-%02d;%02d.%02d.%02d\n",
+                filePath,
                 jkkRadio.jkkRadioStations[jkkRadio.current_station].nameShort,
                 jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong,
                 timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
@@ -247,20 +240,20 @@ static void JkkChangeStation(audio_pipeline_handle_t pipeline, changeStation_e u
     if(jkkRadio.audioSdWrite->is_recording){
         JkkAudioSdWriteStopStream();
 
-        char path[64];
+        char folderPath[32] = {0};
         time_t now = 0;
         time(&now);
-        JkkMakePath(now, path, NULL);
+        JkkMakePath(now, folderPath, NULL);
         esp_err_t ret = ESP_OK;
-        ret = mkdir(path, 0777);
+        ret = mkdir(folderPath, 0777);
         if (ret != 0 && errno != EEXIST) {
-            ESP_LOGE(TAG, "Mkdir directory: %s, failed with errno: %d/%s", path, errno, strerror(errno));
+            ESP_LOGE(TAG, "Mkdir directory: %s, failed with errno: %d/%s", folderPath, errno, strerror(errno));
         }
         else{
-            JkkMakePath(now, path, "aac");
-            JkkAudioSdWriteStartStream(path);
-            JkkMakePath(now, path, "txt");
-            JkkSdRecInfoWrite(now, path);
+            char filePath[48] = {0};
+            JkkMakePath(now, filePath, "aac");
+            ret = JkkAudioSdWriteStartStream(filePath);
+            if(ret == ESP_OK) JkkSdRecInfoWrite(now, folderPath, filePath);
         }
     }
 }
@@ -694,21 +687,21 @@ void app_main(void){
                         continue;
                     }
 
-                    char path[64];
+                    char folderPath[32];
                     time_t now = 0;
                     time(&now);
-                    JkkMakePath(now, path, NULL);
+                    JkkMakePath(now, folderPath, NULL);
                     esp_err_t ret = ESP_OK;
-                    ret = mkdir(path, 0777);
+                    ret = mkdir(folderPath, 0777);
                     if (ret != 0 && errno != EEXIST) {
-                        ESP_LOGE(TAG, "Mkdir directory: %s, failed with errno: %d/%s", path, errno, strerror(errno));
+                        ESP_LOGE(TAG, "Mkdir directory: %s, failed with errno: %d/%s", folderPath, errno, strerror(errno));
                     }
                     else{
-                        JkkMakePath(now, path, "aac");
+                        char filePath[48] = {0};
+                        JkkMakePath(now, filePath, "aac");
                         display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_START, 1);
-                        JkkAudioSdWriteStartStream(path);
-                        JkkMakePath(now, path, "txt");
-                        JkkSdRecInfoWrite(now, path);
+                        ret = JkkAudioSdWriteStartStream(filePath);
+                        if(ret == ESP_OK) JkkSdRecInfoWrite(now, folderPath, filePath);
                     }
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){

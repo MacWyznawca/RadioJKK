@@ -63,7 +63,7 @@ Repository: [ESP-ADF on GitHub](https://github.com/espressif/esp-adf)
 - **Button 4** [short press]: Next station on the list, [long press]: Return to station 1. LED flashes according to the station number.  
 - **Button 3** [short press]: Previous station on the list, [long press]: Favorite station (first favorite on the list). LED flashes according to the station number.  
 - **Button 2** [short press]: Start recording (LED flashes twice every 3 seconds), [long press]: Stop recording (LED flashes 3 times).
-- **Button 1** [short press] move to the next equalizer setting, [long press] return to the setting without equalizer.
+- **Button 1** [short press]: move to the next equalizer setting, [long press] return to the setting without equalizer.
 
 Inserting an SD card reloads the station list. If no list is found, the default list is used.
 
