@@ -37,6 +37,8 @@ esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin
 ```
 myssid;mypassword  
 ```
+
+Po restarcie ustawienia WiFi są zapisywane w pamięci flash NVS i obecność karty SD w czytniku nie jest już konieczna.
   
 - Plik tekstowy (plain text) `stations.txt` z listą stacji radiowych (maksymalnie 20) w formacie csv (pola rozdzielone średnikiem).  
 `url stacji;nazwa krótka;opis;1 lub 0 (ulubione);rodzaj` np.:  
@@ -48,6 +50,8 @@ http://mp3.polskieradio.pl:8904/;Trójka;Polskie Radio Program Trzeci;0;1
 ```
   
 Pliku należy umieścić w katalogu głównym karty microSD.  
+
+Obecnie lista stacji jest zapamiętywana w pamięci flash NVS. Aby zmienić jedną lub więcej stacji, wgraj nową listę na kartę SD i umieść ją w czytniku. Po aktualizacji listy, która trwa do 3 sekund, możesz wyjąć kartę SD, jeżeli nie chcesz nagrywać strumieni.
   
 Przykładowe pliki znajdują się w repozytorium.  
   

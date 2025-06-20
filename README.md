@@ -2,6 +2,7 @@
 
 ## **Features:**
 - Playback of internet radio stations from a list.
+- Copy station list from SD card to NVS (flash) memory.
 - Recording of streams to an SD card in AAC format.
 - Volume control.
 - Selection of one of four equalizer settings.
@@ -37,6 +38,7 @@ esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin
 ```
 myssid;mypassword
 ```
+WiFi settings are copied to NVS flash memory after restart.
 
 - Create a plain text file `stations.txt` with a list of radio stations (up to 20) in CSV format (fields separated by semicolons) `url;short_name;description;favorite(1 or 0);type`.  
 Example format:  
@@ -50,6 +52,8 @@ http://mp3.polskieradio.pl:8904/;Trójka;Polskie Radio Program Trzeci;0;1
 Place these files in the root directory of the microSD card.  
 
 Example files are included in the repository.
+
+Now the station list is copied from the SD card and stored in the NVS. To change one or more stations, upload the new list to the SD card and place it in the reader. After updating the list, which takes up to 3 seconds, you can remove the SD card if you don't want to record streams.
 
 ## Compiling from Source:
 The software has been tested with ESP-IDF 5.4 or 5.4.1 and the latest version of ESP-ADF.  
