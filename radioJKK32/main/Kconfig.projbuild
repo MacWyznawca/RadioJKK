@@ -1,4 +1,4 @@
-menu "Example Configuration"
+menu "RadioJKK Configuration"
 
 config WIFI_SSID
     string "WiFi SSID"
@@ -24,5 +24,5 @@ config WIFI_PASSWORD
 		Note: If the password is set in 'settings.txt', it will override this value
 		and the example will use the password from 'settings.txt'.
 		Can be left blank if the network has no security set.
-
+		
 endmenu

@@ -9,3 +9,4 @@ dependencies:
         version: "~0.4"
       - if: "idf_version >5.4.0 && target in [esp32p4]"
         version: "~0.6"
+

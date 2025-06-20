@@ -21,8 +21,9 @@
 #include "wav_encoder.h"
 #include "audio_common.h"
 
-
 #include "jkk_audio_sdwrite.h"
+
+#define DEFAULT_AAC_BITRATE (80 * 1024) // Default bitrate for AAC encoder
 
 static const char *TAG = "A_SD";
 
@@ -75,19 +76,7 @@ void JkkAudioSdWriteStopStream(void) {
     audio_pipeline_reset_ringbuffer(audioSd.pipeline);
     audio_pipeline_reset_elements(audioSd.pipeline);
     audio_pipeline_reset_items_state(audioSd.pipeline);
-  /*  
-    if(audioSd.raw_read) {
-        audio_element_reset_state(audioSd.raw_read);
-    }
-    if(audioSd.resample) {
-        audio_element_reset_state(audioSd.resample);
-    }
-    if(audioSd.encoder) {
-        audio_element_reset_state(audioSd.encoder);
-    }
-    if(audioSd.fatfs_wr) {
-        audio_element_reset_state(audioSd.fatfs_wr);
-    } */
+
     audioSd.is_recording = false;
 }
 
@@ -173,7 +162,6 @@ JkkAudioSdWrite_t *JkkAudioSdWrite_init(int encoder_type, int sample_rate, int c
         rsp_cfg.dest_rate = sample_rate;
         rsp_cfg.dest_ch = channels;
         rsp_cfg.mode = RESAMPLE_ENCODE_MODE;
-      //  rsp_cfg.complexity = 0;
         rsp_cfg.task_core = 1; // Use core 1 for resampling
         audioSd.resample = rsp_filter_init(&rsp_cfg);
         if(audioSd.resample == NULL) {
@@ -189,7 +177,7 @@ JkkAudioSdWrite_t *JkkAudioSdWrite_init(int encoder_type, int sample_rate, int c
         ESP_LOGI(TAG, "[0.4] Create jkkRadio.audioMain->aac_encoder to encode data");
         aac_encoder_cfg_t wav_cfg = DEFAULT_AAC_ENCODER_CONFIG();
         wav_cfg.sample_rate = sample_rate;
-        wav_cfg.bitrate = 60*1024; // 60 kbps
+        wav_cfg.bitrate = DEFAULT_AAC_BITRATE;
         wav_cfg.task_core = 1;
         audioSd.encoder = aac_encoder_init(&wav_cfg);
         if(audioSd.encoder == NULL) {

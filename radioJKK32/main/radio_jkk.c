@@ -60,6 +60,8 @@
 
 #include "esp_netif.h"
 
+#include "jkk_nvs.h"
+
 extern const char stations_start[] asm("_binary_stations_txt_start"); 
 
 #define EPOCH_TIMESTAMP (978307200l)
@@ -124,11 +126,11 @@ static esp_err_t JkkMakePath(time_t timeSet, char *path, char *ext){
     if(timeSet < EPOCH_TIMESTAMP){
         if(ext) {
             sprintf(path, SD_RECORDS_PATH"/no_time/%08lX.%3s", esp_random(), ext);
-            ESP_LOGI(TAG, "Mkdir path: %s", path);
+            ESP_LOGI(TAG, "Mkdir path (no time set): %s", path);
         }
         else {
             sprintf(path, SD_RECORDS_PATH"/no_time");
-            ESP_LOGI(TAG, "Mkdir directory: %s", path);
+            ESP_LOGI(TAG, "Mkdir directory (no time set): %s", path);
         }
         return ESP_OK;
     }
@@ -137,7 +139,7 @@ static esp_err_t JkkMakePath(time_t timeSet, char *path, char *ext){
     localtime_r(&timeSet, &timeinfo); 
 
     if(ext) {
-        sprintf(path, SD_RECORDS_PATH"/%02d-%02d-%02d/%02d%02d%02d%02d.%3s", timeinfo.tm_year - 100, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, (uint8_t)((esp_timer_get_time() / 10000) % 100), ext);
+        sprintf(path, SD_RECORDS_PATH"/%02d-%02d-%02d/%02d%02d%02d_%1d.%3s", timeinfo.tm_year - 100, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, (uint8_t)((esp_timer_get_time() / 100000) % 10), ext);
         ESP_LOGI(TAG, "Mkdir path: %s", path);
     }
     else {
@@ -261,6 +263,11 @@ static void JkkChangeStation(audio_pipeline_handle_t pipeline, changeStation_e u
 static esp_err_t JkkRadioSettingsRead(void) {
     FILE *fptr;
 
+    JkkNvsBlobGet("wifi_ssid", JKK_RADIO_NVS_NAMESPACE, jkkRadio.wifiSSID, NULL); // &(size_t){sizeof(jkkRadio.wifiSSID)}
+    JkkNvsBlobGet("wifi_password", JKK_RADIO_NVS_NAMESPACE, jkkRadio.wifiPassword, NULL); // &(size_t){sizeof(jkkRadio.wifiPassword)}
+
+    ESP_LOGI(TAG, "WiFi settings from NVS: SSID: %s, Password: %s", jkkRadio.wifiSSID, jkkRadio.wifiPassword);
+
     fptr = fopen("/sdcard/settings.txt", "r");
     if (fptr == NULL) {
         ESP_LOGE(TAG, "Error opening file: /sdcard/settings.txt");
@@ -271,17 +278,18 @@ static esp_err_t JkkRadioSettingsRead(void) {
     char *ssid = strtok(lineStr, ";\n");
     char *pass = strtok(NULL, ";\n");
     if (ssid && pass) {
-        strncpy(jkkRadio.wifiSSID, ssid, sizeof(jkkRadio.wifiSSID) - 1);
-        strncpy(jkkRadio.wifiPassword, pass, sizeof(jkkRadio.wifiPassword) - 1);
-        ESP_LOGI(TAG, "Read WiFi settings: SSID: %s, Password: %s", jkkRadio.wifiSSID, jkkRadio.wifiPassword);
-    } else {
-        jkkRadio.wifiPassword[0] = '\0'; // Default to empty password if not provided
-        jkkRadio.wifiSSID[0] = '\0'; // Default to empty SSID if not provided
-        fclose(fptr);
-        ESP_LOGW(TAG, "Invalid settings format in file");
-        return ESP_ERR_INVALID_ARG;
+        if(strcmp(ssid, jkkRadio.wifiSSID)){
+            JkkNvsBlobSet("wifi_ssid", JKK_RADIO_NVS_NAMESPACE, ssid, strlen(ssid) + 1);
+        }
+        if(strcmp(pass, jkkRadio.wifiPassword)){
+            JkkNvsBlobSet("wifi_password", JKK_RADIO_NVS_NAMESPACE, pass, strlen(pass) + 1);
+        }
+        strcpy(jkkRadio.wifiSSID, ssid);
+        strcpy(jkkRadio.wifiPassword, pass);
+        ESP_LOGI(TAG, "Read WiFi settings: SSID: %s, Password: %s", ssid, pass);
     }
     fclose(fptr);
+    ESP_LOGI(TAG, "WiFi settings: SSID: %s, Password: %s", jkkRadio.wifiSSID, jkkRadio.wifiPassword);
     return ESP_OK;
 }
 
@@ -591,7 +599,7 @@ void app_main(void){
                 continue;
             }
         }
-        ESP_LOGI(TAG, "[ any ] msg.source_type=%d, msg.cmd=%d, Pointer: %p", msg.source_type, msg.cmd, msg.source);
+      //  ESP_LOGI(TAG, "[ any ] msg.source_type=%d, msg.cmd=%d, Pointer: %p", msg.source_type, msg.cmd, msg.source);
 
         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
             && msg.source == (void *)jkkRadio.audioSdWrite->fatfs_wr
@@ -699,9 +707,11 @@ void app_main(void){
                     else{
                         char filePath[48] = {0};
                         JkkMakePath(now, filePath, "aac");
-                        display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_START, 1);
                         ret = JkkAudioSdWriteStartStream(filePath);
-                        if(ret == ESP_OK) JkkSdRecInfoWrite(now, folderPath, filePath);
+                        if(ret == ESP_OK) {
+                            JkkSdRecInfoWrite(now, folderPath, filePath);
+                            display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_START, 1);
+                        }
                     }
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){

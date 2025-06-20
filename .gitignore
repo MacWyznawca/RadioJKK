@@ -8,6 +8,8 @@
 radioJKK32/managed_components
 radioJKK32/managed_components/*
 
+radioJKK32/main/jkk_mono_lcd.*
+
 # LuON_Base/JkkMQTT/broker
 # LuON_Base/JkkMQTT/broker/*
 
