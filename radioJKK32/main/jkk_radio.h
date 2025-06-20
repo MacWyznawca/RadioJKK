@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #define JKK_RADIO_NVS_NAMESPACE "jkk_radio"
+#define JKK_RADIO_NVS_STATION_KEY "station%03X"
 
 typedef struct JkkRadioStations_s {
     char uri[128]; // URI of the radio station

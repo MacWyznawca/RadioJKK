@@ -26,6 +26,8 @@ radioJKK32/main/jkk_mono_lcd.*
 .code-workspace
 *.code-workspace
 
+radioJKK32/dependencies.lock
+
 radioJKK32/sdkconfig
 radioJKK32/sdkconfig.old
 

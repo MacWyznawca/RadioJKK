@@ -9,5 +9,3 @@ set(COMPONENT_ADD_INCLUDEDIRS .)
 
 register_component()
 
-
- #   EMBED_TXTFILES  "../stations.txt"

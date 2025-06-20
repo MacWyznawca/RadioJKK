@@ -61,6 +61,7 @@
 #include "esp_netif.h"
 
 #include "jkk_nvs.h"
+#include "nvs.h"
 
 extern const char stations_start[] asm("_binary_stations_txt_start"); 
 
@@ -223,9 +224,6 @@ static void JkkChangeStation(audio_pipeline_handle_t pipeline, changeStation_e u
         
     if(nextStation < 0) nextStation = jkkRadio.station_count - 1;
     if(nextStation >= jkkRadio.station_count) nextStation = 0;
-    if(jkkRadio.current_station == nextStation){
-        return;
-    }
 
     jkkRadio.current_station = nextStation;
     audio_pipeline_stop(pipeline);
@@ -293,7 +291,7 @@ static esp_err_t JkkRadioSettingsRead(void) {
     return ESP_OK;
 }
 
-void JkkRadioStationEmbeddedRead(char const *stationsEmbedded) {
+static void JkkRadioStationEmbeddedRead(char const *stationsEmbedded) {
     if (stationsEmbedded == NULL || strlen(stationsEmbedded) == 0) {
         ESP_LOGW(TAG, "No stations provided to read");
         jkkRadio.jkkRadioStations = heap_caps_calloc(JKK_RADIO_MAX_EBMEDDED_STATIONS, sizeof(JkkRadioStations_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -333,7 +331,7 @@ void JkkRadioStationEmbeddedRead(char const *stationsEmbedded) {
 
     lineStr[index] = strtok(stations, "\n");
     // loop through the string to extract all other tokens
-     while( lineStr[index] != NULL ) {
+    while( lineStr[index] != NULL ) {
         index++;
         if (index >= JKK_RADIO_MAX_EBMEDDED_STATIONS) {
             ESP_LOGW(TAG, "Reached maximum station count (%d), stopping reading from file", JKK_RADIO_MAX_EBMEDDED_STATIONS);
@@ -381,53 +379,112 @@ void JkkRadioStationEmbeddedRead(char const *stationsEmbedded) {
     }
     for (int i = 0; i < index; i++) {
         ESP_LOGI(TAG, "Station %d: URI=%s, NameShort=%s, NameLong=%s, Favorite=%s, Type=%d, Audio desc.=%s",
-                 i + 1, jkkRadio.jkkRadioStations[i].uri,
+                 i, jkkRadio.jkkRadioStations[i].uri,
                  jkkRadio.jkkRadioStations[i].nameShort,
                  jkkRadio.jkkRadioStations[i].nameLong,
                  jkkRadio.jkkRadioStations[i].is_favorite ? "true" : "false",
                  jkkRadio.jkkRadioStations[i].type,
                  jkkRadio.jkkRadioStations[i].audioDes);
+        
+        char key[16] = {0};
+        sprintf(key, JKK_RADIO_NVS_STATION_KEY, i);
+        JkkNvsBlobSet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio.jkkRadioStations[i], sizeof(JkkRadioStations_t)); // Save each station to NVS
     }
     free(stations); // Free the temporary string buffer
     jkkRadio.station_count = index;
 }
 
-esp_err_t JkkRadioStationSdRead(void) {
+static int JkkRadioStationNvsCount(void){
+    nvs_handle_t nvsHandle;
+    nvs_type_t type = NVS_TYPE_ANY;
+    int stationCount = 0;
+
+    esp_err_t ret = nvs_open(JKK_RADIO_NVS_NAMESPACE, NVS_READONLY, &nvsHandle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Error (%s) opening NVS nvsHandle!\n", esp_err_to_name(ret));
+        return ESP_ERR_NVS_INVALID_HANDLE;
+    }
+    for(uint8_t i = 0; i < JKK_RADIO_MAX_STATIONS; i++) {
+        char key[16] = {0};
+        sprintf(key, JKK_RADIO_NVS_STATION_KEY, i);
+        ret = nvs_find_key(nvsHandle, key, &type);
+        if(ret == ESP_OK && type == NVS_TYPE_BLOB) {
+            stationCount++;
+        } else if (ret == ESP_ERR_NVS_NOT_FOUND) {
+            break; // No more stations found
+        }
+    }
+
+    nvs_close(nvsHandle);
+    ESP_LOGI(TAG, "Found %d stations in NVS", stationCount);
+    return stationCount;
+}
+
+static esp_err_t JkkRadioStationSdRead(void) {
     FILE *fptr;
+    int nvsStationCount = JkkRadioStationNvsCount();
+    int sdStationCount = 0;
+
+    if(nvsStationCount > 0) {
+        if(jkkRadio.jkkRadioStations) free(jkkRadio.jkkRadioStations);
+        jkkRadio.jkkRadioStations = heap_caps_calloc(nvsStationCount, sizeof(JkkRadioStations_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (jkkRadio.jkkRadioStations == NULL) {
+            ESP_LOGE(TAG, "Memory allocation failed for jkkRadio.jkkRadioStations");
+            return ESP_ERR_NO_MEM;
+        }
+        for(uint8_t i = 0; i < nvsStationCount; i++) {
+            char key[16] = {0};
+            sprintf(key, JKK_RADIO_NVS_STATION_KEY, i);
+            JkkNvsBlobGet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio.jkkRadioStations[i], NULL); 
+            ESP_LOGI(TAG, "Station from NVS %d: URI=%s, NameShort=%s, NameLong=%s, Favorite=%s, Type=%d, Audio desc.=%s",
+                     i, jkkRadio.jkkRadioStations[i].uri,
+                     jkkRadio.jkkRadioStations[i].nameShort,
+                     jkkRadio.jkkRadioStations[i].nameLong,
+                     jkkRadio.jkkRadioStations[i].is_favorite ? "true" : "false",
+                     jkkRadio.jkkRadioStations[i].type,
+                     jkkRadio.jkkRadioStations[i].audioDes);
+        }
+        jkkRadio.station_count = nvsStationCount;
+    }
 
     fptr = fopen("/sdcard/stations.txt", "r");
     if (fptr == NULL) {
-        ESP_LOGE(TAG, "Error opening file: /sdcard/stations.txt");
-        JkkRadioStationEmbeddedRead(stations_start);
+        ESP_LOGE(TAG, "Error opening file: /sdcard/stations.txt and no stations in NVS");
+        if(nvsStationCount == 0) {
+            ESP_LOGW(TAG, "No stations found in NVS and /sdcard/stations.txt does not exist, using embedded stations");
+            JkkRadioStationEmbeddedRead(stations_start);
+        }
         return ESP_ERR_NOT_FOUND;
     }
 
     char lineStr[512];
-    int stationCount = 0;
+
     while(fgets(lineStr, sizeof(lineStr), fptr)) {
         if (lineStr[0] == '#' || lineStr[0] == '\n') continue; // Skip comments and empty lines
-        stationCount++;
+        sdStationCount++;
     }
-    ESP_LOGI(TAG, "Found %d stations in /sdcard/stations.txt", stationCount);
+    ESP_LOGI(TAG, "Found %d stations in /sdcard/stations.txt", sdStationCount);
     rewind(fptr); // Reset file pointer to the beginning
-    if(stationCount == 0) {
+    if(sdStationCount == 0) {
         ESP_LOGW(TAG, "No stations found in /sdcard/stations.txt");
         fclose(fptr);
         JkkRadioStationEmbeddedRead(stations_start);
         return ESP_ERR_NOT_FOUND;
     }
-    else if (stationCount > JKK_RADIO_MAX_STATIONS) {
-        ESP_LOGW(TAG, "Too many stations (%d) in /sdcard/stations.txt, limiting to JKK_RADIO_MAX_STATIONS", stationCount);
-        stationCount = JKK_RADIO_MAX_STATIONS; // Limit to 100 stations
+    else if (sdStationCount > JKK_RADIO_MAX_STATIONS) {
+        ESP_LOGW(TAG, "Too many stations (%d) in /sdcard/stations.txt, limiting to JKK_RADIO_MAX_STATIONS", sdStationCount);
+        sdStationCount = JKK_RADIO_MAX_STATIONS; // Limit to JKK_RADIO_MAX_STATIONS stations
     }
-    if(jkkRadio.jkkRadioStations) free(jkkRadio.jkkRadioStations); // Free previously allocated memory if any
-
-    jkkRadio.jkkRadioStations = heap_caps_calloc(stationCount, sizeof(JkkRadioStations_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (jkkRadio.jkkRadioStations == NULL) {
-        ESP_LOGE(TAG, "Memory allocation failed for jkkRadio.jkkRadioStations");
-        fclose(fptr);
-        return ESP_ERR_NO_MEM;
+    if( nvsStationCount < sdStationCount) {
+        
+        jkkRadio.jkkRadioStations = heap_caps_realloc(jkkRadio.jkkRadioStations, sdStationCount * sizeof(JkkRadioStations_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (jkkRadio.jkkRadioStations == NULL) {
+            ESP_LOGE(TAG, "Memory reallocation failed for jkkRadio.jkkRadioStations");
+            fclose(fptr);
+            return ESP_ERR_NO_MEM;
+        }
     }
+    
     int index = 0;
     while(fgets(lineStr, sizeof(lineStr), fptr)) {
         if (lineStr[0] == '#' || lineStr[0] == '\n') continue; // Skip comments and empty lines
@@ -439,38 +496,73 @@ esp_err_t JkkRadioStationSdRead(void) {
         char *audioDes = strtok(NULL, ";\n");
         
         if (uri) {
-            strncpy(jkkRadio.jkkRadioStations[index].uri, uri, sizeof(jkkRadio.jkkRadioStations[index].uri) - 1);
-            if (nameShort) {
-                strncpy(jkkRadio.jkkRadioStations[index].nameShort, nameShort, sizeof(jkkRadio.jkkRadioStations[index].nameShort) - 1);
-            } else {
-                jkkRadio.jkkRadioStations[index].nameShort[0] = '\0'; // Default to empty if not provided
-            }
-            if(nameLong) {
-                strncpy(jkkRadio.jkkRadioStations[index].nameLong, nameLong, sizeof(jkkRadio.jkkRadioStations[index].nameLong) - 1);
-            } else {
-                jkkRadio.jkkRadioStations[index].nameLong[0] = '\0'; // Default to empty if not provided
-            }
-            if(is_favorite) {
-                jkkRadio.jkkRadioStations[index].is_favorite = (strcmp(is_favorite, "1") == 0);
-            } else {
-                jkkRadio.jkkRadioStations[index].is_favorite = false; // Default to false if not provided
-            }
-            if(type) {
-                jkkRadio.jkkRadioStations[index].type = atoi(type);
-                
-            } else {
-                jkkRadio.jkkRadioStations[index].type = JKK_RADIO_UNKNOWN; // Default to unknown type
-            }
-            if(audioDes) {
-                strncpy(jkkRadio.jkkRadioStations[index].audioDes, audioDes, sizeof(jkkRadio.jkkRadioStations[index].audioDes) - 1);
-            } else {
-                jkkRadio.jkkRadioStations[index].audioDes[0] = '\0'; // Default to empty if not provided
+            char key[16] = {0};
+            sprintf(key, JKK_RADIO_NVS_STATION_KEY, index);
+            if(strcmp(uri, jkkRadio.jkkRadioStations[index].uri) || strcmp(nameShort, jkkRadio.jkkRadioStations[index].nameShort) || strcmp(nameLong, jkkRadio.jkkRadioStations[index].nameLong) || jkkRadio.jkkRadioStations[index].is_favorite != (strcmp(is_favorite, "1") == 0)) {
+                // If the station is different from the one in NVS, update it
+                strncpy(jkkRadio.jkkRadioStations[index].uri, uri, sizeof(jkkRadio.jkkRadioStations[index].uri) - 1);
+
+                if (nameShort) {
+                    strncpy(jkkRadio.jkkRadioStations[index].nameShort, nameShort, sizeof(jkkRadio.jkkRadioStations[index].nameShort) - 1);
+                } else {
+                    jkkRadio.jkkRadioStations[index].nameShort[0] = '\0'; // Default to empty if not provided
+                }
+                if(nameLong) {
+                    strncpy(jkkRadio.jkkRadioStations[index].nameLong, nameLong, sizeof(jkkRadio.jkkRadioStations[index].nameLong) - 1);
+                } else {
+                    jkkRadio.jkkRadioStations[index].nameLong[0] = '\0'; // Default to empty if not provided
+                }
+                if(is_favorite) {
+                    jkkRadio.jkkRadioStations[index].is_favorite = (strcmp(is_favorite, "1") == 0);
+                } else {
+                    jkkRadio.jkkRadioStations[index].is_favorite = false; // Default to false if not provided
+                }
+                if(type) {
+                    jkkRadio.jkkRadioStations[index].type = atoi(type);
+                    
+                } else {
+                    jkkRadio.jkkRadioStations[index].type = JKK_RADIO_UNKNOWN; // Default to unknown type
+                }
+                if(audioDes) {
+                    strncpy(jkkRadio.jkkRadioStations[index].audioDes, audioDes, sizeof(jkkRadio.jkkRadioStations[index].audioDes) - 1);
+                } else {
+                    jkkRadio.jkkRadioStations[index].audioDes[0] = '\0'; // Default to empty if not provided
+                }
+                JkkNvsBlobSet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio.jkkRadioStations[index], sizeof(JkkRadioStations_t)); // Save each station to NVS
+                ESP_LOGI(TAG, "Updated station %d from file: URI=%s, NameShort=%s, NameLong=%s, Favorite=%s, Type=%d, Audio desc.=%s",
+                         index,
+                         jkkRadio.jkkRadioStations[index].uri,
+                         jkkRadio.jkkRadioStations[index].nameShort,
+                         jkkRadio.jkkRadioStations[index].nameLong,
+                         jkkRadio.jkkRadioStations[index].is_favorite ? "true" : "false",
+                         jkkRadio.jkkRadioStations[index].type,
+                         jkkRadio.jkkRadioStations[index].audioDes);
             }
             index++;
-            if (index >= stationCount) {
-                ESP_LOGW(TAG, "Reached maximum station count (%d), stopping reading from file", stationCount);
+            if (index >= sdStationCount) {
+                ESP_LOGI(TAG, "Reached end of station list(%d), stopping reading from file", sdStationCount);
                 break; // Stop reading if we reach the maximum count
             }
+        }
+    }
+    if(index < nvsStationCount) {
+        // If there are more stations in NVS than in the file, remove the extra ones
+        for(int i = index; i < nvsStationCount; i++) {
+            char key[16] = {0};
+            sprintf(key, JKK_RADIO_NVS_STATION_KEY, i);
+            ESP_LOGI(TAG, "Removing station %d from NVS: %s", i, key);
+            JkkNvsErase(key, JKK_RADIO_NVS_NAMESPACE);
+        }
+    }
+    if(index < nvsStationCount) {
+        // If there are more stations in the file than in NVS, fill the rest with empty stations
+        for(int i = index; i < sdStationCount; i++) {
+            jkkRadio.jkkRadioStations[i].uri[0] = '\0';
+            jkkRadio.jkkRadioStations[i].nameShort[0] = '\0';
+            jkkRadio.jkkRadioStations[i].nameLong[0] = '\0';
+            jkkRadio.jkkRadioStations[i].is_favorite = false;
+            jkkRadio.jkkRadioStations[i].type = JKK_RADIO_UNKNOWN;
+            jkkRadio.jkkRadioStations[i].audioDes[0] = '\0';
         }
     }
     fclose(fptr);
@@ -479,7 +571,7 @@ esp_err_t JkkRadioStationSdRead(void) {
     ESP_LOGI(TAG, "Loaded stations:");
     for (int i = 0; i < index; i++) {
         ESP_LOGI(TAG, "Station %d: URI=%s, NameShort=%s, NameLong=%s, Favorite=%s, Type=%d, Audio desc.=%s",
-                 i + 1,
+                 i,
                  jkkRadio.jkkRadioStations[i].uri,
                  jkkRadio.jkkRadioStations[i].nameShort,
                  jkkRadio.jkkRadioStations[i].nameLong,
@@ -676,16 +768,6 @@ void app_main(void){
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
                     JkkChangeEq(0);
                 }
-            } else if ((int)msg.data == get_input_volup_id() && (msg.cmd == PERIPH_BUTTON_RELEASE)) {
-                ESP_LOGI(TAG, "[Vol+] touch tap event");
-                jkkRadio.player_volume += jkkRadio.player_volume < 40 ? 5 : 10;
-                if (jkkRadio.player_volume > 100) {
-                    jkkRadio.player_volume = 100;
-                }
-                audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
-                ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
-
-              //  cli_get_mp3_id3_info(audio_decoder);
             } else if ((int)msg.data == get_input_rec_id()) {
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
                     audio_element_state_t sdState = audio_element_get_state(jkkRadio.audioSdWrite->fatfs_wr);
@@ -718,6 +800,16 @@ void app_main(void){
                     display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_STOP, 1);
                     JkkAudioSdWriteStopStream();
                 }
+             }else if ((int)msg.data == get_input_volup_id() && (msg.cmd == PERIPH_BUTTON_RELEASE)) {
+                ESP_LOGI(TAG, "[Vol+] touch tap event");
+                jkkRadio.player_volume += jkkRadio.player_volume < 40 ? 5 : 10;
+                if (jkkRadio.player_volume > 100) {
+                    jkkRadio.player_volume = 100;
+                }
+                audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
+                ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
+
+              //  cli_get_mp3_id3_info(audio_decoder);
             } else if ((int)msg.data == get_input_voldown_id()) {
                 ESP_LOGI(TAG, "[Vol-] touch tap event");
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
