@@ -225,6 +225,13 @@ static void JkkChangeStation(audio_pipeline_handle_t pipeline, changeStation_e u
     if(nextStation < 0) nextStation = jkkRadio.station_count - 1;
     if(nextStation >= jkkRadio.station_count) nextStation = 0;
 
+    if(nextStation == jkkRadio.current_station) {
+        ESP_LOGI(TAG, "No change in station, current station: %d", jkkRadio.current_station);
+        return;
+    }
+
+    audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
+
     jkkRadio.current_station = nextStation;
     audio_pipeline_stop(pipeline);
     audio_pipeline_wait_for_stop(pipeline);
@@ -745,20 +752,16 @@ void app_main(void){
         if (msg.source_type == PERIPH_ID_BUTTON && (msg.cmd == PERIPH_BUTTON_RELEASE || msg.cmd == PERIPH_BUTTON_LONG_PRESSED)) {
             if ((int)msg.data == get_input_play_id()) {
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                    audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
                     JkkChangeStation(jkkRadio.audioMain->pipeline, JKK_RADIO_STATION_PREV);
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
-                    audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
                     JkkChangeStation(jkkRadio.audioMain->pipeline, JKK_RADIO_STATION_FAV);
                 }
             } else if ((int)msg.data == get_input_set_id()) {
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                    audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
                     JkkChangeStation(jkkRadio.audioMain->pipeline, JKK_RADIO_STATION_NEXT);
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
-                    audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
                     JkkChangeStation(jkkRadio.audioMain->pipeline, JKK_RADIO_STATION_FIRST);
                 }
             } else if ((int)msg.data == get_input_mode_id()) {
