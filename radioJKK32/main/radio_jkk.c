@@ -216,27 +216,11 @@ static void JkkChangeStation(audio_pipeline_handle_t pipeline, changeStation_e u
 
     audio_pipeline_reset_ringbuffer(pipeline);
     audio_pipeline_reset_elements(pipeline);
-    audio_pipeline_run(pipeline);
-
     if(jkkRadio.audioSdWrite->is_recording){
         JkkAudioSdWriteStopStream();
-
-        char folderPath[32] = {0};
-        time_t now = 0;
-        time(&now);
-        JkkMakePath(now, folderPath, NULL);
-        esp_err_t ret = ESP_OK;
-        ret = mkdir(folderPath, 0777);
-        if (ret != 0 && errno != EEXIST) {
-            ESP_LOGE(TAG, "Mkdir directory: %s, failed with errno: %d/%s", folderPath, errno, strerror(errno));
-        }
-        else{
-            char filePath[48] = {0};
-            JkkMakePath(now, filePath, "aac");
-            ret = JkkAudioSdWriteStartStream(filePath);
-            if(ret == ESP_OK) JkkSdRecInfoWrite(now, folderPath, filePath);
-        }
+        jkkRadio.audioSdWrite->is_recording = true;
     }
+    audio_pipeline_run(pipeline);
 }
 
 void app_main(void){
@@ -348,7 +332,6 @@ void app_main(void){
             }
         }
       //  ESP_LOGI(TAG, "[ any ] msg.source_type=%d, msg.cmd=%d, Pointer: %p", msg.source_type, msg.cmd, msg.source);
-
         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
             && msg.source == (void *)jkkRadio.audioSdWrite->fatfs_wr
             && msg.cmd == AEL_MSG_CMD_REPORT_STATUS
@@ -384,9 +367,27 @@ void app_main(void){
                 JkkAudioSdWriteResChange(music_info.sample_rates, music_info.channels, music_info.bits);
                 memcpy(&prev_music_info, &music_info, sizeof(audio_element_info_t));
             }
-           // JkkAudioSdWriteRestartStream(false);
 
             audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, true);
+
+            if(jkkRadio.audioSdWrite->is_recording){
+                JkkAudioSdWriteStopStream();
+                char folderPath[32] = {0};
+                time_t now = 0;
+                time(&now);
+                JkkMakePath(now, folderPath, NULL);
+                esp_err_t ret = ESP_OK;
+                ret = mkdir(folderPath, 0777);
+                if (ret != 0 && errno != EEXIST) {
+                    ESP_LOGE(TAG, "Mkdir directory: %s, failed with errno: %d/%s", folderPath, errno, strerror(errno));
+                }
+                else{
+                    char filePath[48] = {0};
+                    JkkMakePath(now, filePath, "aac");
+                    ret = JkkAudioSdWriteStartStream(filePath);
+                    if(ret == ESP_OK) JkkSdRecInfoWrite(now, folderPath, filePath);
+                }
+            }
             continue;
         }
 
