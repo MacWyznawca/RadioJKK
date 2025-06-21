@@ -4,6 +4,7 @@ set(COMPONENT_SRCS  "radio_jkk.c"
                     "jkk_audio_main.c" 
                     "jkk_audio_sdwrite.c"
                     "jkk_nvs.c"
+                    "jkk_settings.c"
                    )
 set(COMPONENT_ADD_INCLUDEDIRS .)
 
