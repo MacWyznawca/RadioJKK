@@ -1,28 +1,67 @@
 menu "RadioJKK Configuration"
 
-config WIFI_SSID
-    string "WiFi SSID"
-	default "myssid"
-	help
-		SSID (network name) for the example to connect to.
-		Use 'settings.txt' in main folder of SD card to set the ssid at runtime in csv (separated by semicolon) format:
-		
-		myssid;mypassword
-		
-		Note: If the ssid is set in 'settings.txt', it will override this value
-		and the example will use the ssid from 'settings.txt'.
+	config WIFI_SSID
+		string "WiFi SSID"
+		default "myssid"
+		help
+			SSID (network name) for the example to connect to.
+			Use 'settings.txt' in main folder of SD card to set the ssid at runtime in csv (separated by semicolon) format:
+			
+			myssid;mypassword
+			
+			Note: If the ssid is set in 'settings.txt', it will override this value
+			and the example will use the ssid from 'settings.txt'.
 
-config WIFI_PASSWORD
-    string "WiFi Password"
-	default "mypassword"
-	help
-		WiFi password (WPA or WPA2) for the example to use.
-		Use 'settings.txt' in main folder of SD card to set the password at runtime in csv (separated by semicolon) format:
-		
-		myssid;mypassword
-		
-		Note: If the password is set in 'settings.txt', it will override this value
-		and the example will use the password from 'settings.txt'.
-		Can be left blank if the network has no security set.
-		
+	config WIFI_PASSWORD
+		string "WiFi Password"
+		default "mypassword"
+		help
+			WiFi password (WPA or WPA2) for the example to use.
+			Use 'settings.txt' in main folder of SD card to set the password at runtime in csv (separated by semicolon) format:
+			
+			myssid;mypassword
+			
+			Note: If the password is set in 'settings.txt', it will override this value
+			and the example will use the password from 'settings.txt'.
+			Can be left blank if the network has no security set.
+
+	config JKK_RADIO_USING_I2C_LCD
+		bool "Use I2C LCD"
+		default n
+		help
+			Choose y to use i2c LCD (OLED). Settings limited Keypad
+
+	if JKK_RADIO_USING_I2C_LCD
+		choice JKK_RADIO_LCD_CONTROLLER
+			prompt "LCD controller model"
+			default JKK_RADIO_LCD_CONTROLLER_SSD1306
+			help
+				Select LCD controller model
+
+			config JKK_RADIO_LCD_CONTROLLER_SSD1306
+				bool "SSD1306"
+
+			config JKK_RADIO_LCD_CONTROLLER_SH1107
+				bool "SH1107"
+		endchoice
+
+		if JKK_RADIO_LCD_CONTROLLER_SSD1306
+			choice JKK_RADIO_SSD1306_HEIGHT
+				prompt "SSD1306 Height in pixels"
+				default JKK_RADIO_SSD1306_HEIGHT_64
+				help
+					Height of the display in pixels. a.k.a vertical resolution
+
+				config JKK_RADIO_SSD1306_HEIGHT_64
+					bool "64"
+				config JKK_RADIO_SSD1306_HEIGHT_32
+					bool "32"
+			endchoice
+
+			config JKK_RADIO_SSD1306_HEIGHT
+				int
+				default 64 if JKK_RADIO_SSD1306_HEIGHT_64
+				default 32 if JKK_RADIO_SSD1306_HEIGHT_32
+		endif
+	endif
 endmenu

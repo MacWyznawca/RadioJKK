@@ -32,7 +32,8 @@ static const char *TAG = "A_Main";
 
 static EXT_RAM_BSS_ATTR JkkAudioMain_t audioMain = {0}; // EXT_RAM_BSS_ATTR
 
-int _http_stream_event_handle(http_stream_event_msg_t *msg){
+static int _http_stream_event_handle(http_stream_event_msg_t *msg){
+    
     if (msg->event_id == HTTP_STREAM_RESOLVE_ALL_TRACKS) {
         return ESP_OK;
     }
@@ -44,6 +45,7 @@ int _http_stream_event_handle(http_stream_event_msg_t *msg){
     }
     return ESP_OK;
 }
+
 
 esp_err_t JkkAudioSetUrl(const char *url, bool out) {
     if((((out ? audioMain.output_type : audioMain.input_type) != 3) && ((out ? audioMain.output_type : audioMain.input_type) != 2)) || (out ? audioMain.output : audioMain.input) == NULL) {

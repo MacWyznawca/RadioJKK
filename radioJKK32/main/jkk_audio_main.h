@@ -18,6 +18,7 @@ extern "C" {
 typedef struct JkkAudioMain_s {
     audio_pipeline_handle_t pipeline;
     audio_element_handle_t input;
+    audio_element_handle_t parser;
     audio_element_handle_t decoder;
     audio_element_handle_t split;
     audio_element_handle_t processing;

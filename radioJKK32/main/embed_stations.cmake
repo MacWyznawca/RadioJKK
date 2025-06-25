@@ -1,1 +1,0 @@
-set(COMPONENT_EMBED_TXTFILES ../stations.txt)
