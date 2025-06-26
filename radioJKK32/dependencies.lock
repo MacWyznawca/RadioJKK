@@ -43,20 +43,6 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.1.0
-  espressif/esp_lvgl_port:
-    component_hash: b43dc04720d126cbfe14d53a84787e4c24b7bd7f15468e224c930ad3ffb32258
-    dependencies:
-    - name: idf
-      require: private
-      version: '>=4.4'
-    - name: lvgl/lvgl
-      registry_url: https://components.espressif.com
-      require: public
-      version: ^8
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    version: 1.4.0
   espressif/esp_websocket_client:
     component_hash: f77326f0e1c38da4e9c97e17c5d649b0dd13027f2645e720e48db269638fd622
     dependencies:
@@ -102,23 +88,22 @@ dependencies:
       type: idf
     version: 5.4.1
   lvgl/lvgl:
-    component_hash: d7c1ac037ae6e85d94897f807d6e7ba0946a83e720074fc95a4f6241da9f9f53
+    component_hash: b702d642e03e95928046d5c6726558e6444e112420c77efa5fdb6650b0a13c5d
     dependencies: []
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 8.4.0
+    version: 9.3.0
 direct_dependencies:
 - espressif/esp-dsp
 - espressif/esp_lcd_ili9341
 - espressif/esp_lcd_sh1107
-- espressif/esp_lvgl_port
 - espressif/esp_websocket_client
 - espressif/jsmn
 - espressif/nghttp
 - espressif/zlib
 - idf
 - lvgl/lvgl
-manifest_hash: e269d3fced12e2a512b2785f0f0583236e16f61ac8bba09d1dcbc1168c118d3f
+manifest_hash: 8f9efec4c22370ac1a6d32948104899653977792ba7ccbba8ebf5ffc6de3acd4
 target: esp32
 version: 2.0.0

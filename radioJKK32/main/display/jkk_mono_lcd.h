@@ -13,6 +13,10 @@ extern "C" {
 
 void JkkLcdInit(void);
 
+bool JkkLcdPortLock(uint32_t timeout_ms);
+
+void JkkLcdPortUnlock(void);
+
 void JkkLcdStationTxt(char *stationName);
 
 void JkkLcdVolumeInt(int vol);
@@ -20,6 +24,7 @@ void JkkLcdVolumeInt(int vol);
 void JkkLcdRec(bool rec);
 
 void JkkLcdEqTxt(char *eqName);
+
 
 #ifdef __cplusplus
 }

@@ -64,7 +64,7 @@
 #include "jkk_settings.h"
 
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
-#include "jkk_mono_lcd.h"
+#include "display/jkk_mono_lcd.h"
 #endif
 
 #define JKK_RADIO_PREDEV_EQ (4) // Maximum number of radio stations
@@ -178,16 +178,17 @@ static void JkkChangeEq(int eqN){
     }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     if(jkkRadio.current_eq == 0) {
-        JkkLcdEqTxt("----");
+        JkkLcdEqTxt("---");
     } else if(jkkRadio.current_eq == 1) {
         JkkLcdEqTxt("-_-");
     } else if(jkkRadio.current_eq == 2) {
         JkkLcdEqTxt("\\_/");
     } else if(jkkRadio.current_eq == 3) {
         JkkLcdEqTxt("_-_");
-    } 
-#endif
+    }
+#else
     display_service_set_pattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + jkkRadio.current_eq + 1, 1);
+#endif
     JkkAudioEqSetAll(eq_Gains[jkkRadio.current_eq]);
 }
 
@@ -226,12 +227,12 @@ static void JkkChangeStation(audio_pipeline_handle_t pipeline, changeStation_e u
     audio_pipeline_wait_for_stop(pipeline);
 
     ESP_LOGI(TAG, "Station change - Name: %s, Url: %s", jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong, jkkRadio.jkkRadioStations[jkkRadio.current_station].uri);
+    JkkAudioSetUrl(jkkRadio.jkkRadioStations[jkkRadio.current_station].uri, false);
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
-#endif
+#else
     display_service_set_pattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + jkkRadio.current_station + 1, 1);
-    JkkAudioSetUrl(jkkRadio.jkkRadioStations[jkkRadio.current_station].uri, false);
-
+#endif
     audio_pipeline_reset_ringbuffer(pipeline);
     audio_pipeline_reset_elements(pipeline);
     if(jkkRadio.audioSdWrite->is_recording){
@@ -265,14 +266,15 @@ void app_main(void){
     jkkRadio.board_handle = audio_board_init();
     audio_hal_ctrl_codec(jkkRadio.board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
 
+    audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
+    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, 10);
+    jkkRadio.player_volume = 10; // Set initial volume
+
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     ESP_LOGI(TAG, "Initialize I2C LCD display");
     JkkLcdInit();
 #endif
 
-    audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
-    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, 10);
-    jkkRadio.player_volume = 10; // Set initial volume
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdVolumeInt(jkkRadio.player_volume);
 #endif
@@ -326,9 +328,9 @@ void app_main(void){
     JkkAudioSetUrl(jkkRadio.jkkRadioStations[0].uri, false);
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
-#endif
+#else
     display_service_set_pattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + 1, 1);
-
+#endif
     ESP_LOGI(TAG, "Set up  event listener");
     audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
     jkkRadio.evt = audio_event_iface_init(&evt_cfg);
@@ -354,10 +356,10 @@ void app_main(void){
           //  ESP_LOGW(TAG, "[ Uncnow ] fatfs_wr state: %d, inState: %d", sdState, inState);
             jkkRadio.audioSdWrite->is_recording = (sdState == AEL_STATE_RUNNING);
             if(jkkRadio.audioSdWrite->is_recording){
+                display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_START, 1);
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
                 JkkLcdRec(true);
-#endif
-                display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_START, 1);
+#endif     
             }
             else {
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
@@ -439,7 +441,7 @@ void app_main(void){
             JkkAudioRestartStream();
             continue;
         }
-#if defined(CONFIG_AI_THINKER_ESP32_A1S_ES8388_BUTTON_KEY_GPIO)
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
         if (msg.source_type == PERIPH_ID_BUTTON && (msg.cmd == PERIPH_BUTTON_RELEASE || msg.cmd == PERIPH_BUTTON_LONG_PRESSED)) {
             if ((int)msg.data == get_input_mode_id()) {
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
@@ -484,7 +486,7 @@ void app_main(void){
                     if (jkkRadio.player_volume > 100) {
                         jkkRadio.player_volume = 100;
                     }
-                    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
+                    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);                
                     JkkLcdVolumeInt(jkkRadio.player_volume);
                     ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
                 }

@@ -54,6 +54,14 @@ Pliku należy umieścić w katalogu głównym karty microSD.
 Obecnie lista stacji jest zapamiętywana w pamięci flash NVS. Aby zmienić jedną lub więcej stacji, wgraj nową listę na kartę SD i umieść ją w czytniku. Po aktualizacji listy, która trwa do 3 sekund, możesz wyjąć kartę SD, jeżeli nie chcesz nagrywać strumieni.
   
 Przykładowe pliki znajdują się w repozytorium.  
+
+## Pierwsze przymiarki do wyświetlacza i2c
+Obsługa wyświetlaczy i2c 128x64 SSD1306 lub SH1107 (wybór za pomocą idf.py menuconfig). Plik binarny `RadioJKK_LCD_v0.bin` jest przygotowany dla wyświetlacza SSD1306.
+
+Podłączenie:
+- SDA: 18
+- SCL: 5
+Uwaga: Klawisze 5 i 6 przestają działać. Ich funkcje są przeniesione.
   
 ## Kompilacja z plików źródłowych:  
 Oprogramowanie jest sprawdzane z ESP-IDF 5.4 lub 5.4.1 oraz ESP-ADF (najnowszą wersją).  
@@ -67,6 +75,11 @@ Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/
 - **Klawisz 3** [krótko] poprzednia stacja z listy, [długo] ulubiona (pierwsza ulubiona z listy). Dioda miga zgodnie z numerem na liście.  
 - **Klawisz 2** [krótko] rozpoczęcie nagrywania (dioda co 3 sekundy miga dwukrotnie), [długo] zakończenie nagrywania (dioda mika 3 razy).  
 - **Klawisz 1** [krótko] przejście do kolejnego ustawienia equalizera, [długo] powrót do ustawień bez korekcji.  
+
+### Tymczasowe sterowanie z wyświetlaczem:
+- **Klawisz 4** [krótko] głośniej, [długo] następna stacja z listy.  
+- **Klawisz 3** [krótko] cieszej, [długo] poprzednia stacja z listy.  
+- **Klawisz 1** [krótko] przejście do kolejnego ustawienia equalizera, [długo] włączenie lub wyłączenie nagrywania.  
   
 Włożenie karty SD powoduje ponowne załadowanie listy stacji. W przypadku braku listy stacji używana jest domyślna.  
   

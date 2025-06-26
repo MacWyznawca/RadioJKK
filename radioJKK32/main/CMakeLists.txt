@@ -7,7 +7,7 @@ set(srcs  "radio_jkk.c"
                    )
 
 if(CONFIG_JKK_RADIO_USING_I2C_LCD)
-    list(APPEND srcs "jkk_mono_lcd.c")
+    list(APPEND srcs "display/jkk_mono_lcd.c")
 endif()
 
 idf_component_register(SRCS "${srcs}"
