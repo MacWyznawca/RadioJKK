@@ -17,13 +17,21 @@ menu "RadioJKK Configuration"
 		default "mypassword"
 		help
 			WiFi password (WPA or WPA2) for the example to use.
-			Use 'settings.txt' in main folder of SD card to set the password at runtime in csv (separated by semicolon) format:
 			
-			myssid;mypassword
-			
-			Note: If the password is set in 'settings.txt', it will override this value
+			Note:  Use 'settings.txt' in main folder of SD card to set the password at runtime in csv (separated by semicolon) format:
+			If the password is set in 'settings.txt', it will override this value
 			and the example will use the password from 'settings.txt'.
 			Can be left blank if the network has no security set.
+			
+			myssid;mypassword
+
+	config JKK_RADIO_USING_EXT_KEYS
+		bool "Use External keys"
+		default n
+		help
+			Choose y to use GPIO13 connected to (JT) MTCK as KEY2 and GPIO22 (P2) as KEY1.
+			You also can use GPIO19 (P2) as KEY3 and GPIO23 (P2) as KEY4.
+			Note: set (S1) [1] GPIO13 off and (S1) [4] GPIO13 set to JT MTCK 
 
 	config JKK_RADIO_USING_I2C_LCD
 		bool "Use I2C LCD"

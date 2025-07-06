@@ -64,22 +64,29 @@
 #include "jkk_settings.h"
 
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+#include "lvgl.h"
 #include "display/jkk_mono_lcd.h"
+#include "vmeter/volume_meter.h"
 #endif
-
-#define JKK_RADIO_PREDEV_EQ (4) // Maximum number of radio stations
 
 static const char *TAG = "RADIO";
 
-static const EXT_RAM_BSS_ATTR int eq_Gains[JKK_RADIO_PREDEV_EQ][10] = {
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 4, 3, 1, 0, -1, 0, 1, 3, 6},
-    {0, 6, 6, 4, 0, -1, -1, 0, 6, 10},
-    {-6, -6, -2, 1, 2, 3, 2, 1, -2, -6}
-};
-
+static TaskHandle_t eventsHandle = NULL;
 
 static EXT_RAM_BSS_ATTR JkkRadio_t jkkRadio = {0};
+
+static void JkkTaskInfo(void){
+  //  static char buf[1024];
+    audio_sys_get_real_time_stats();
+#ifdef CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+  //  vTaskGetRunTimeStats (buf) ;
+  //  printf("Task Name\tStatus\tPrio\tHWM\tPercent\n%s\n\n", buf) ;
+#endif
+#ifdef CONFIG_FREERTOS_USE_TRACE_FACILITY
+  //  vTaskList (buf);
+   // printf("Task Name\tStatus\tPrio\tHWM\tPercent\n%s\n\n", buf) ;
+#endif
+}
 
 static void initialize_sntp(void){
     ESP_LOGI(TAG, "Initializing SNTP");
@@ -97,6 +104,44 @@ static void SetTimeSync_cb(struct timeval *tv){
     time_t now = 0;
     time(&now);
     ESP_LOGW(TAG, "SetTimeSync_cb %lld", now);
+}
+
+esp_err_t JkkRadioSendMessageToMain(int mess, int command){
+    audio_event_iface_msg_t msg = {0};
+
+    msg.source_type = AUDIO_ELEMENT_TYPE_UNKNOW;
+    msg.cmd = command; // Własna komenda
+    msg.data = (void*)(intptr_t)mess;
+    msg.data_len = sizeof(int);
+
+    esp_err_t ret = audio_event_iface_sendout(esp_periph_set_get_event_iface(jkkRadio.set), &msg); 
+    ESP_LOGW(TAG, "JkkRadioSendMessageToMain ret: %d, mess: %d", ret, (int)(intptr_t)msg.data);
+    return ret;
+}
+
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+static void JkkTimeDisp(void){
+    time_t now = 0;
+    struct tm timeinfo = { 0 };
+    time(&now);
+    localtime_r(&now, &timeinfo);
+
+    char timeStr[12] = {0};
+    strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
+    JkkLcdTimeTxt(timeStr);
+}
+#endif
+
+int LedIndicatorPattern(void *handle, int disp_pattern, int value){
+    int ret = ESP_OK;
+    if(handle == NULL) {
+       // ESP_LOGW(TAG, "display_service_set_pattern Invalid handle");
+        return ESP_ERR_INVALID_ARG;
+    }
+#if (CONFIG_JKK_RADIO_USING_I2C_LCD != 1)
+    ret = display_service_set_pattern(handle, disp_pattern, value);
+#endif
+    return ret;
 }
 
 static esp_err_t JkkMakePath(time_t timeSet, char *path, char *ext){
@@ -167,29 +212,25 @@ static bool JkkIOFileInfo(const char *f_path, uint32_t *lenght, uint32_t *time){
 }
 
 static void JkkChangeEq(int eqN){
-    if(eqN == 1){
+    if(eqN == JKK_RADIO_CMD_SET_UNKNOW){
         jkkRadio.current_eq++;
     }
     else if(eqN == 0){
         jkkRadio.current_eq = 0;
     }
-    if(jkkRadio.current_eq >= JKK_RADIO_PREDEV_EQ){
+    else {
+        jkkRadio.current_eq = eqN;
+    }
+    if(jkkRadio.current_eq >= jkkRadio.eq_count){
         jkkRadio.current_eq = 0;
     }
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-    if(jkkRadio.current_eq == 0) {
-        JkkLcdEqTxt("---");
-    } else if(jkkRadio.current_eq == 1) {
-        JkkLcdEqTxt("-_-");
-    } else if(jkkRadio.current_eq == 2) {
-        JkkLcdEqTxt("\\_/");
-    } else if(jkkRadio.current_eq == 3) {
-        JkkLcdEqTxt("_-_");
-    }
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+    if(JkkAudioMainProcessState()) JkkLcdEqTxt(jkkRadio.eqPresets[jkkRadio.current_eq].name);
+    else JkkLcdEqTxt("");
 #else
-    display_service_set_pattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + jkkRadio.current_eq + 1, 1);
+   // LedIndicatorPattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + jkkRadio.current_eq + 1, 1);
 #endif
-    JkkAudioEqSetAll(eq_Gains[jkkRadio.current_eq]);
+    JkkAudioEqSetAll(jkkRadio.eqPresets[jkkRadio.current_eq].gain);
 }
 
 static void JkkChangeStation(audio_pipeline_handle_t pipeline, changeStation_e urbNr){
@@ -215,45 +256,78 @@ static void JkkChangeStation(audio_pipeline_handle_t pipeline, changeStation_e u
     if(nextStation < 0) nextStation = jkkRadio.station_count - 1;
     if(nextStation >= jkkRadio.station_count) nextStation = 0;
 
-    if(nextStation == jkkRadio.current_station) {
+    JkkRadioSetStation(nextStation);
+}
+
+void JkkRadioSetStation(uint16_t station){
+    if(station > jkkRadio.station_count - 1) {
         ESP_LOGI(TAG, "No change in station, current station: %d", jkkRadio.current_station);
+        return;
+    }
+
+    if(station == jkkRadio.current_station) {
+        ESP_LOGI(TAG, "No change in station, current station: %d", jkkRadio.current_station);
+        return;
+    }
+
+    if(jkkRadio.is_ChangingStation) {
+        ESP_LOGW(TAG, "Changing station in progress");
+        jkkRadio.is_ChangingStation = false;
         return;
     }
 
     audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
 
-    jkkRadio.current_station = nextStation;
-    audio_pipeline_stop(pipeline);
-    audio_pipeline_wait_for_stop(pipeline);
+    if(jkkRadio.audioSdWrite->is_recording) {
+        JkkAudioSdWriteStopStream();
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+        JkkLcdRec(false);
+        JkkAudioMainOnOffProcessing(true, jkkRadio.evt);
+        JkkLcdEqTxt(jkkRadio.eqPresets[jkkRadio.current_eq].name);
+#endif
+    }
 
+    jkkRadio.is_ChangingStation = true;
+
+    esp_err_t ret = ESP_OK;
+    ret = audio_pipeline_stop(jkkRadio.audioMain->pipeline);
+    ret |= audio_pipeline_wait_for_stop(jkkRadio.audioMain->pipeline);
+
+    if(ret != ESP_OK){
+        ESP_LOGE(TAG, "Station change stopped: pipeline stop error");
+        jkkRadio.is_ChangingStation = false;
+      //  return;
+    }
+
+    ret = audio_pipeline_reset_ringbuffer(jkkRadio.audioMain->pipeline);
+    if(ret != ESP_OK){
+        ESP_LOGI(TAG, "audio_pipeline_reset_ringbuffer Error: %d", ret);
+        jkkRadio.is_ChangingStation = false;
+      //  return;
+    }
+
+    jkkRadio.current_station = station;
     ESP_LOGI(TAG, "Station change - Name: %s, Url: %s", jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong, jkkRadio.jkkRadioStations[jkkRadio.current_station].uri);
     JkkAudioSetUrl(jkkRadio.jkkRadioStations[jkkRadio.current_station].uri, false);
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-    JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
-#else
-    display_service_set_pattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + jkkRadio.current_station + 1, 1);
-#endif
-    audio_pipeline_reset_ringbuffer(pipeline);
-    audio_pipeline_reset_elements(pipeline);
-    if(jkkRadio.audioSdWrite->is_recording){
-        JkkAudioSdWriteStopStream();
-        jkkRadio.audioSdWrite->is_recording = true;
+    
+    ret = audio_pipeline_run(jkkRadio.audioMain->pipeline);
+    if(ret != ESP_OK){
+        ESP_LOGI(TAG, "audio_pipeline_run Error: %d", ret);
+        jkkRadio.is_ChangingStation = false;
     }
-    audio_pipeline_run(pipeline);
+    else {
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+        JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
+        if(JkkLcdRollerMode() == JKK_ROLLER_MODE_STATION_LIST) {
+            JkkLcdShowRoller(true, jkkRadio.current_station, JKK_ROLLER_MODE_STATION_LIST);
+        }
+#else
+     //   LedIndicatorPattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + jkkRadio.current_station + 1, 1);
+#endif
+    }
 }
 
-void app_main(void){
-    jkkRadio.player_volume = 15;
-
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-
-    ESP_ERROR_CHECK(esp_netif_init());
-
-    jkkRadio.disp_serv = audio_board_led_init();
+static void MainAppTask(void *arg){
 
     esp_log_level_set("*", ESP_LOG_INFO);
     esp_log_level_set(TAG, ESP_LOG_DEBUG);
@@ -261,6 +335,8 @@ void app_main(void){
 
     jkkRadio.current_station = 0;
     jkkRadio.current_eq = 0;
+
+    jkkRadio.player_volume = 10;
 
     ESP_LOGI(TAG, "Start audio codec chip");
     jkkRadio.board_handle = audio_board_init();
@@ -270,12 +346,12 @@ void app_main(void){
     audio_hal_set_volume(jkkRadio.board_handle->audio_hal, 10);
     jkkRadio.player_volume = 10; // Set initial volume
 
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-    ESP_LOGI(TAG, "Initialize I2C LCD display");
-    JkkLcdInit();
-#endif
+   // jkkRadio.disp_serv = audio_board_led_init(); LED making some but big problems
+   // ESP_LOGI(TAG, "Initialize LED: %p", jkkRadio.disp_serv);
 
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+    ESP_LOGI(TAG, "Initialize I2C LCD display");
+    JkkLcdUiInit();
     JkkLcdVolumeInt(jkkRadio.player_volume);
 #endif
 
@@ -291,6 +367,7 @@ void app_main(void){
 
     JkkRadioSettingsRead(&jkkRadio);
     JkkRadioStationSdRead(&jkkRadio);
+    JkkRadioEqSdRead(&jkkRadio);
 
     ESP_LOGI(TAG, "Start and wait for Wi-Fi network");
 
@@ -329,7 +406,7 @@ void app_main(void){
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
 #else
-    display_service_set_pattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + 1, 1);
+  //  LedIndicatorPattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + 1, 1);
 #endif
     ESP_LOGI(TAG, "Set up  event listener");
     audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
@@ -352,25 +429,44 @@ void app_main(void){
         esp_err_t ret = audio_event_iface_listen(jkkRadio.evt, &msg, pdMS_TO_TICKS(3000)); // portMAX_DELAY
         if (ret != ESP_OK) {
             audio_element_state_t sdState = audio_element_get_state(jkkRadio.audioSdWrite->fatfs_wr);
-           // audio_element_state_t inState = audio_element_get_state(jkkRadio.audioMain->input);
-          //  ESP_LOGW(TAG, "[ Uncnow ] fatfs_wr state: %d, inState: %d", sdState, inState);
+            audio_element_state_t inState = audio_element_get_state(jkkRadio.audioMain->input);
+            audio_element_state_t outState = audio_element_get_state(jkkRadio.audioMain->output);
+         //   ESP_LOGW(TAG, "[ Uncnow ] fatfs_wr state: %d, inState: %d", sdState, inState);
             jkkRadio.audioSdWrite->is_recording = (sdState == AEL_STATE_RUNNING);
+            jkkRadio.is_playing = (inState == AEL_STATE_RUNNING && outState == AEL_STATE_RUNNING);
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+            JkkTimeDisp();
+#endif
             if(jkkRadio.audioSdWrite->is_recording){
-                display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_START, 1);
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
                 JkkLcdRec(true);
-#endif     
+#else
+               // LedIndicatorPattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_START, 1);
+#endif             
             }
             else {
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
                 JkkLcdRec(false);
 #endif
-            }
-
+            }        
             if(msg.source_type == 0 && msg.cmd == 0){
                 continue;
             }
-        }  
+        } 
+        if(msg.source_type == AUDIO_ELEMENT_TYPE_UNKNOW){
+            if(msg.cmd == JKK_RADIO_CMD_SET_STATION){
+                int received_value = (int)(intptr_t)msg.data;
+
+                ESP_LOGW(TAG, "JKK_RADIO_CMD_SET_STATION: %d", received_value); 
+                JkkRadioSetStation(received_value);
+            }
+            else if(msg.cmd == JKK_RADIO_CMD_SET_EQUALIZER){
+                int received_value = (int)(intptr_t)msg.data;
+
+                ESP_LOGW(TAG, "JKK_RADIO_CMD_SET_STATION: %d", received_value); 
+                JkkChangeEq(received_value);
+            }
+        } 
       //  ESP_LOGI(TAG, "[ any ] msg.source_type=%d, msg.cmd=%d, Pointer: %p", msg.source_type, msg.cmd, msg.source);
         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
             && msg.source == (void *)jkkRadio.audioSdWrite->fatfs_wr
@@ -379,10 +475,12 @@ void app_main(void){
             && (int)msg.data == AEL_STATUS_ERROR_OUTPUT) {
             
             ESP_LOGW(TAG, "Stop write stream"); 
-            display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_STOP, 1);
+          //  LedIndicatorPattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_STOP, 1);
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
             JkkLcdRec(false);
-#endif
+            JkkAudioMainOnOffProcessing(true, jkkRadio.evt);
+            JkkLcdEqTxt(jkkRadio.eqPresets[jkkRadio.current_eq].name);
+#endif//
             JkkAudioSdWriteStopStream();
             continue;
         }
@@ -390,47 +488,35 @@ void app_main(void){
         if (msg.source_type == PERIPH_ID_SDCARD && msg.cmd == AEL_MSG_CMD_FINISH) {  
             JkkRadioSettingsRead(&jkkRadio);
             JkkRadioStationSdRead(&jkkRadio);
+            JkkRadioEqSdRead(&jkkRadio);
             continue;
         }
 
         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
             && msg.source == (void *)jkkRadio.audioMain->decoder
             && msg.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
+
+
             static audio_element_info_t prev_music_info = {0};
             audio_element_info_t music_info = {0};
             audio_element_getinfo(jkkRadio.audioMain->decoder, &music_info);
 
             ESP_LOGI(TAG, "Receive music info from dec decoder, sample_rates=%d, bits=%d, ch=%d", music_info.sample_rates, music_info.bits, music_info.channels);
 
-            if ((prev_music_info.bits != music_info.bits) || (prev_music_info.sample_rates != music_info.sample_rates)
-                || (prev_music_info.channels != music_info.channels)) {
+            if ((prev_music_info.bits != music_info.bits) || (prev_music_info.sample_rates != music_info.sample_rates) || (prev_music_info.channels != music_info.channels)) {
                 ESP_LOGI(TAG, "Change sample_rates=%d, bits=%d, ch=%d",  music_info.sample_rates, music_info.bits, music_info.channels);
                 JkkAudioI2sSetClk(music_info.sample_rates, music_info.bits, music_info.channels, true);
                 JkkAudioEqSetInfo(music_info.sample_rates, music_info.channels);
                 JkkAudioSdWriteResChange(music_info.sample_rates, music_info.channels, music_info.bits);
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+                volume_meter_update_format(jkkRadio.audioMain->vmeter, music_info.sample_rates, music_info.channels, music_info.bits);
+#endif
                 memcpy(&prev_music_info, &music_info, sizeof(audio_element_info_t));
             }
 
             audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, true);
 
-            if(jkkRadio.audioSdWrite->is_recording){
-                JkkAudioSdWriteStopStream();
-                char folderPath[32] = {0};
-                time_t now = 0;
-                time(&now);
-                JkkMakePath(now, folderPath, NULL);
-                esp_err_t ret = ESP_OK;
-                ret = mkdir(folderPath, 0777);
-                if (ret != 0 && errno != EEXIST) {
-                    ESP_LOGE(TAG, "Mkdir directory: %s, failed with errno: %d/%s", folderPath, errno, strerror(errno));
-                }
-                else{
-                    char filePath[48] = {0};
-                    JkkMakePath(now, filePath, "aac");
-                    ret = JkkAudioSdWriteStartStream(filePath);
-                    if(ret == ESP_OK) JkkSdRecInfoWrite(now, folderPath, filePath);
-                }
-            }
+            jkkRadio.is_ChangingStation = false;
             continue;
         }
 
@@ -442,18 +528,34 @@ void app_main(void){
             continue;
         }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
-        if (msg.source_type == PERIPH_ID_BUTTON && (msg.cmd == PERIPH_BUTTON_RELEASE || msg.cmd == PERIPH_BUTTON_LONG_PRESSED)) {
-            if ((int)msg.data == get_input_mode_id()) {
+        if (msg.source_type == PERIPH_ID_BUTTON && (msg.cmd == PERIPH_BUTTON_RELEASE || msg.cmd == PERIPH_BUTTON_LONG_PRESSED || msg.cmd == PERIPH_BUTTON_PRESSED)) {
+            if ((int)msg.data == get_input_set_id()) {
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                    JkkChangeEq(1);
+                    jkkRollerMode_t rollerMode = JkkLcdRollerMode();
+                    if(msg.cmd == PERIPH_BUTTON_RELEASE){
+                        if(rollerMode == JKK_ROLLER_MODE_EQUALIZER_LIST){
+                            JkkLcdButtonSet(LV_KEY_ENTER, 1);
+                        }
+                        else {
+                            char *lcdRollerOptions = heap_caps_calloc(jkkRadio.eq_count, 10, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+                            for (int i = 0; i < jkkRadio.eq_count; i++) {
+                                strncat(lcdRollerOptions, jkkRadio.eqPresets[i].name, 8);
+                                if(i < jkkRadio.eq_count - 1) strcat(lcdRollerOptions, "\n");
+                            }
+                            JkkLcdSetRollerOptions(lcdRollerOptions, jkkRadio.current_eq);
+                            free(lcdRollerOptions);
+                            JkkLcdShowRoller(true, jkkRadio.current_eq, JKK_ROLLER_MODE_EQUALIZER_LIST);
+                        }
+                    }
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
                     audio_element_state_t sdState = audio_element_get_state(jkkRadio.audioSdWrite->fatfs_wr);
                     jkkRadio.audioSdWrite->is_recording = (sdState == AEL_STATE_RUNNING);
                     if(jkkRadio.audioSdWrite->is_recording){
-                        display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_STOP, 1);
                         JkkLcdRec(false);
                         JkkAudioSdWriteStopStream();
+                        JkkAudioMainOnOffProcessing(true, jkkRadio.evt);
+                        JkkLcdEqTxt(jkkRadio.eqPresets[jkkRadio.current_eq].name);
                     }
                     else{
                         char folderPath[32];
@@ -466,23 +568,62 @@ void app_main(void){
                             ESP_LOGE(TAG, "Mkdir directory: %s, failed with errno: %d/%s", folderPath, errno, strerror(errno));
                         }
                         else{
+                            if(jkkRadio.audioMain->sample_rate > 25000){
+                                JkkAudioMainOnOffProcessing(false, jkkRadio.evt);
+                                JkkLcdEqTxt("");
+                            }
                             char filePath[48] = {0};
                             JkkMakePath(now, filePath, "aac");
                             ret = JkkAudioSdWriteStartStream(filePath);
                             if(ret == ESP_OK) {
                                 JkkSdRecInfoWrite(now, folderPath, filePath);
-                                display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_START, 1);
                                 JkkLcdRec(true);
                             }
                         }
                     }
                 }
-            } else if ((int)msg.data == get_input_rec_id()) {
-                ;
-            } else if ((int)msg.data == get_input_set_id()) {
+            } else if ((int)msg.data == get_input_mode_id()) {
+                jkkRollerMode_t rollerMode = JkkLcdRollerMode();
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
+                    if(rollerMode == JKK_ROLLER_MODE_STATION_LIST) {
+                        JkkLcdButtonSet(LV_KEY_ENTER, 1);
+                    }
+                    else {
+                        char *lcdRollerOptions = heap_caps_calloc(jkkRadio.station_count, 10, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+                        for (int i = 0; i < jkkRadio.station_count; i++) {
+                            strncat(lcdRollerOptions, jkkRadio.jkkRadioStations[i].nameShort, 8);
+                            if(i < jkkRadio.station_count - 1) strcat(lcdRollerOptions, "\n");
+                        }
+                        JkkLcdSetRollerOptions(lcdRollerOptions, jkkRadio.current_station);
+                        free(lcdRollerOptions);
+                        JkkLcdShowRoller(true, jkkRadio.current_station, JKK_ROLLER_MODE_STATION_LIST);
+                    }
+                }
+                else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED && rollerMode == JKK_ROLLER_MODE_STATION_LIST){
+                    JkkLcdButtonSet(LV_KEY_ESC, 1);
+                    JkkLcdShowRoller(false, UINT8_MAX, JKK_ROLLER_MODE_HIDE);
+                }
+               // JkkTaskInfo();
+                ESP_LOGI(TAG, "[] get_input_mode_id");
+            } else if ((int)msg.data == get_input_volup_id()) {
+                jkkRollerMode_t rollerMode = JkkLcdRollerMode();
+                if(rollerMode > JKK_ROLLER_MODE_HIDE && rollerMode < JKK_ROLLER_MODE_UNKNOWN){
+                    ESP_LOGI(TAG, "[Right] touch tap event");
+                    if(msg.cmd == PERIPH_BUTTON_RELEASE){
+                        JkkLcdButtonSet(LV_KEY_RIGHT, 1);
+                    }
+                    else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
+                        JkkChangeStation(jkkRadio.audioMain->pipeline, JKK_RADIO_STATION_FIRST);
+                    }
+                }
+                else {
                     ESP_LOGI(TAG, "[Vol+] touch tap event");
-                    jkkRadio.player_volume += jkkRadio.player_volume < 40 ? 5 : 10;
+                    if(msg.cmd == PERIPH_BUTTON_RELEASE){
+                        jkkRadio.player_volume += jkkRadio.player_volume < 40 ? 5 : 10;
+                    }
+                    else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
+                        jkkRadio.player_volume += jkkRadio.player_volume < 40 ? 10 : 20;  
+                    }
                     if (jkkRadio.player_volume > 100) {
                         jkkRadio.player_volume = 100;
                     }
@@ -490,24 +631,34 @@ void app_main(void){
                     JkkLcdVolumeInt(jkkRadio.player_volume);
                     ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
                 }
-                else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
-                    JkkChangeStation(jkkRadio.audioMain->pipeline, JKK_RADIO_STATION_NEXT);
-                }
-
-              //  cli_get_mp3_id3_info(audio_decoder);
-            } else if ((int)msg.data == get_input_play_id()) {
-                ESP_LOGI(TAG, "[Vol-] touch tap event");
-                if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                    jkkRadio.player_volume -= jkkRadio.player_volume < 40 ? 5 : 10;
-                    if (jkkRadio.player_volume < 0) {
-                        jkkRadio.player_volume = 0;
+            } else if ((int)msg.data == get_input_voldown_id()) {
+                jkkRollerMode_t rollerMode = JkkLcdRollerMode();
+                if(rollerMode > JKK_ROLLER_MODE_HIDE && rollerMode < JKK_ROLLER_MODE_UNKNOWN){
+                    ESP_LOGI(TAG, "[Left] tap event");
+                    if(msg.cmd == PERIPH_BUTTON_RELEASE){
+                        JkkLcdButtonSet(LV_KEY_LEFT, 1);
                     }
-                    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
-                    JkkLcdVolumeInt(jkkRadio.player_volume);
-                    ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
+                    else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
+                        JkkChangeStation(jkkRadio.audioMain->pipeline, JKK_RADIO_STATION_FAV);
+                    }
                 }
-                else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
-                    JkkChangeStation(jkkRadio.audioMain->pipeline, JKK_RADIO_STATION_PREV);
+                else {
+                    ESP_LOGI(TAG, "[Vol-] tap event");
+                    if(msg.cmd == PERIPH_BUTTON_RELEASE){
+                        jkkRadio.player_volume -= jkkRadio.player_volume < 40 ? 5 : 10;
+                        if (jkkRadio.player_volume < 0) {
+                            jkkRadio.player_volume = 0;
+                        }
+                        audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
+                        JkkLcdVolumeInt(jkkRadio.player_volume);
+                        ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
+                    }
+                    else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
+                        jkkRadio.player_volume = 0;
+                        audio_hal_set_volume(jkkRadio.board_handle->audio_hal, 0);
+                        JkkLcdVolumeInt(jkkRadio.player_volume);
+                        ESP_LOGI(TAG, "Volume jkkRadio.set MUTED");
+                    }
                 }
             }
         }
@@ -529,7 +680,7 @@ void app_main(void){
                 }
             } else if ((int)msg.data == get_input_mode_id()) {
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                    JkkChangeEq(1);
+                    JkkChangeEq(JKK_RADIO_CMD_SET_UNKNOW);
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
                     JkkChangeEq(0);
@@ -557,11 +708,12 @@ void app_main(void){
                         ret = JkkAudioSdWriteStartStream(filePath);
                         if(ret == ESP_OK) {
                             JkkSdRecInfoWrite(now, folderPath, filePath);
+                          //  LedIndicatorPattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_START, 1);
                         }
                     }
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
-                    display_service_set_pattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_STOP, 1);
+                  //  LedIndicatorPattern(jkkRadio.disp_serv, DISPLAY_PATTERN_RECORDING_STOP, 1);
                     JkkAudioSdWriteStopStream();
                 }
              }else if ((int)msg.data == get_input_volup_id() && (msg.cmd == PERIPH_BUTTON_RELEASE)) {
@@ -570,6 +722,8 @@ void app_main(void){
                 if (jkkRadio.player_volume > 100) {
                     jkkRadio.player_volume = 100;
                 }
+                if(jkkRadio.player_volume > 0) audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, true);
+
                 audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
                 ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
 
@@ -606,4 +760,17 @@ void app_main(void){
     JkkAudioSdWrite_deinit();
     audio_board_deinit(jkkRadio.board_handle);
     free(jkkRadio.jkkRadioStations);
+
+}
+
+void app_main(){
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+
+    ESP_ERROR_CHECK(esp_netif_init());
+
+    xTaskCreatePinnedToCoreWithCaps(MainAppTask, "LVGL", 4 * 1024 + 512, NULL, 4, &eventsHandle, 1, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 }

@@ -59,7 +59,7 @@
 #define CODEC_ADC_BITS_PER_SAMPLE I2S_BITS_PER_SAMPLE_16BIT
 #define CODEC_ADC_SAMPLE_RATE     (48000)
 #define RECORD_HARDWARE_AEC       (false)
-#define BOARD_PA_GAIN             (10) /* Power amplifier gain defined by board (dB) */
+#define BOARD_PA_GAIN             (8) /* Power amplifier gain defined by board (dB) */
 
 extern audio_hal_func_t AUDIO_CODEC_ES8388_DEFAULT_HANDLE;
 #define AUDIO_CODEC_DEFAULT_CONFIG(){                   \
@@ -82,18 +82,22 @@ extern audio_hal_func_t AUDIO_CODEC_ES8388_DEFAULT_HANDLE;
 
 #if defined(CONFIG_AI_THINKER_ESP32_A1S_ES8388_BUTTON_KEY_GPIO)
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
-#define BUTTON_VOLUP_ID           -1  /* KEY6 GPIO_NUM_5 */
-#define BUTTON_VOLDOWN_ID         -1 /* KEY5 GPIO_NUM_18 */
-#define BUTTON_SET_ID             GPIO_NUM_23 /* KEY4  GPIO_NUM_23 SET_ID */ 
-#define BUTTON_PLAY_ID            GPIO_NUM_19 /* KEY3 *GPIO_NUM_19 REC_ID */
-#define BUTTON_REC_ID             GPIO_NUM_13 /* KEY2 GPIO_NUM_13 REC_ID */
+#define BUTTON_REC_ID             -1  /* KEY6 GPIO_NUM_5 */
+#define BUTTON_PLAY_ID            -1 /* KEY5 GPIO_NUM_18 */
+#define BUTTON_VOLUP_ID           GPIO_NUM_23 /* KEY4  GPIO_NUM_23 SET_ID */ 
+#define BUTTON_VOLDOWN_ID         GPIO_NUM_19 /* KEY3 *GPIO_NUM_19 REC_ID */
+#define BUTTON_SET_ID             GPIO_NUM_13 /* KEY2 GPIO_NUM_13 REC_ID */
+#if defined(CONFIG_JKK_RADIO_USING_EXT_KEYS)
+#define BUTTON_MODE_ID            GPIO_NUM_22 /* KEY1 GPIO_NUM_12MODE_ID */ 
+#else
 #define BUTTON_MODE_ID            GPIO_NUM_36 /* KEY1 GPIO_NUM_36 MODE_ID */
+#endif // JKK_RADIO_USING_EXT_KEYS
 
 #define INPUT_KEY_DEFAULT_INFO() {                  \
     {                                               \
         .type = PERIPH_ID_BUTTON,                   \
         .user_id = INPUT_KEY_USER_ID_REC,           \
-        .act_id = BUTTON_REC_ID,                    \
+        .act_id = BUTTON_SET_ID,                    \
     },                                              \
     {                                               \
         .type = PERIPH_ID_BUTTON,                   \
@@ -103,15 +107,16 @@ extern audio_hal_func_t AUDIO_CODEC_ES8388_DEFAULT_HANDLE;
     {                                               \
         .type = PERIPH_ID_BUTTON,                   \
         .user_id = INPUT_KEY_USER_ID_SET,           \
-        .act_id = BUTTON_SET_ID,                    \
+        .act_id = BUTTON_VOLUP_ID,                    \
     },                                              \
     {                                               \
         .type = PERIPH_ID_BUTTON,                   \
         .user_id = INPUT_KEY_USER_ID_PLAY,          \
-        .act_id = BUTTON_PLAY_ID,                   \
+        .act_id = BUTTON_VOLDOWN_ID,                   \
     }                                               \
 }
-#else // CONFIG_JKK_RADIO_USING_I2C_LCD
+
+#else // !CONFIG_JKK_RADIO_USING_I2C_LCD
 
 #define BUTTON_VOLUP_ID           GPIO_NUM_5  /* KEY6 */
 #define BUTTON_VOLDOWN_ID         GPIO_NUM_18 /* KEY5 */

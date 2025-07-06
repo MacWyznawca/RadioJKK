@@ -23,6 +23,8 @@
 #include "filter_resample.h"
 #include "equalizer.h"
 #include "RawSplit/raw_split.h"
+#include "vmeter/volume_meter.h"
+#include "display/jkk_mono_lcd.h"
 
 #include "jkk_audio_main.h"
 
@@ -30,7 +32,7 @@ static const char *TAG = "A_Main";
 
 #define NUMBER_BAND (10)
 
-static EXT_RAM_BSS_ATTR JkkAudioMain_t audioMain = {0}; // EXT_RAM_BSS_ATTR
+static  JkkAudioMain_t audioMain = {0}; // EXT_RAM_BSS_ATTR
 
 static int _http_stream_event_handle(http_stream_event_msg_t *msg){
     
@@ -116,7 +118,7 @@ esp_err_t JkkAudioRestartStream(void) {
     esp_err_t ret = audio_pipeline_stop(audioMain.pipeline);
     ret |= audio_pipeline_wait_for_stop(audioMain.pipeline);
     ret |= audio_pipeline_reset_ringbuffer(audioMain.pipeline);
-    ret |= audio_pipeline_reset_items_state(audioMain.pipeline);
+  //  ret |= audio_pipeline_reset_items_state(audioMain.pipeline);
     ret |= audio_pipeline_run(audioMain.pipeline);
     return ret;
 }
@@ -231,12 +233,12 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
     else {
         audioMain.decoder = NULL;
     }
-    
 
     if(rawSplitNr > 0) {
         ESP_LOGI(TAG, "[1.3] Create raw split to split audio data");
         raw_split_cfg_t rs_cfg = RAW_SPLIT_CFG_DEFAULT();
         rs_cfg.multi_out_num = rawSplitNr;
+        rs_cfg.task_prio = 7;
         audioMain.split = raw_split_init(&rs_cfg);
         ESP_LOGI(TAG, "Pointer raw_split=%p", audioMain.split);
         if (audioMain.split == NULL) {
@@ -254,6 +256,7 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
     if(processingType == 1) {
         ESP_LOGI(TAG, "[1.4] Create equalizer to process audio data");
         equalizer_cfg_t eq_cfg = DEFAULT_EQUALIZER_CONFIG();
+        eq_cfg.task_prio = 7;
         eq_cfg.channel = 2;
         eq_cfg.samplerate = 22050;
         audioMain.processing = equalizer_init(&eq_cfg);
@@ -273,6 +276,17 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
         audio_pipeline_register(audioMain.pipeline, audioMain.processing, processingTypeStr[audioMain.processing_type]);
         ESP_LOGI(TAG, "[1.1] Register processing to audio pipeline with tag '%s'",  processingTypeStr[audioMain.processing_type]);
     }
+
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+    volume_meter_cfg_t vmcfg = V_METER_CFG_DEFAULT();
+    vmcfg.update_rate_hz = 14;
+    vmcfg.frame_size = 768;
+    vmcfg.volume_callback = JkkLcdVolumeIndicatorCallback;
+    audioMain.vmeter = volume_meter_init(&vmcfg);
+    audio_pipeline_register(audioMain.pipeline, audioMain.vmeter, "VM");
+#else
+    audioMain.vmeter = NULL;
+#endif
 
     switch ( outType) {
         case 0: {// RAW  
@@ -339,44 +353,84 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
     audio_pipeline_register(audioMain.pipeline, audioMain.output, outTypeStr[outType]);
     ESP_LOGI(TAG, "[1.5] Register output to audio pipeline with tag '%s'", outTypeStr[outType]);
 
-    int elCount = 2; // Always: input, output
+    audioMain.linkElementsNoProcessing[0] = inTypeStr[inType];
+    audioMain.linkElementsAll[0] = inTypeStr[inType];
+
+    int link_idx_all = 1;
+    int link_idx_No_proc = 1;
     if( audioMain.decoder != NULL) {
-        elCount++;
+        audioMain.linkElementsNoProcessing[link_idx_No_proc++] = "DEC";
+        audioMain.linkElementsAll[link_idx_all++] = "DEC";    
     }
     if( audioMain.split != NULL) {
-        elCount++;
+        audioMain.linkElementsNoProcessing[link_idx_No_proc++] = "RS";
+        audioMain.linkElementsAll[link_idx_all++] = "RS";
     }
     if( audioMain.processing != NULL) {
-        elCount++;
+        audioMain.linkElementsAll[link_idx_all++] = processingTypeStr[audioMain.processing_type];
+    }
+    if( audioMain.vmeter != NULL) {
+        audioMain.linkElementsAll[link_idx_all++] = "VM";
     }
 
-    const char *link_tag[elCount]; 
+    audioMain.linkElementsAllCount = link_idx_all + 1;
 
-    link_tag[0] = inTypeStr[inType];
-    int link_idx = 1;
-    if( audioMain.decoder != NULL) {
-        link_tag[link_idx++] = "DEC";
-    }
-    if( audioMain.split != NULL) {
-        link_tag[link_idx++] = "RS";
-    }
-    if( audioMain.processing != NULL) {
-        link_tag[link_idx++] = processingTypeStr[audioMain.processing_type];
-    }
-    link_tag[link_idx] = outTypeStr[outType]; 
+    audioMain.linkElementsNoProcessing[link_idx_No_proc] = outTypeStr[outType]; 
+    audioMain.linkElementsAll[link_idx_all] = outTypeStr[outType]; 
 
-    ESP_LOGI(TAG, "Link tags: %s, %s, %s, %s, %s", link_tag[0], 
-             (link_idx > 0) ? link_tag[1] : "",
-             (link_idx > 1) ? link_tag[2] : "",
-             (link_idx > 2) ? link_tag[3] : "",
-             (link_idx > 3) ? link_tag[4] : "");
+    ESP_LOGI(TAG, "Link tags: %s, %s, %s, %s, %s, %s", audioMain.linkElementsAll[0], 
+             (link_idx_all > 0) ? audioMain.linkElementsAll[1] : "",
+             (link_idx_all > 1) ? audioMain.linkElementsAll[2] : "",
+             (link_idx_all > 2) ? audioMain.linkElementsAll[3] : "",
+             (link_idx_all > 3) ? audioMain.linkElementsAll[4] : "",
+             (link_idx_all > 4) ? audioMain.linkElementsAll[5] : "");
 
-    audio_pipeline_link(audioMain.pipeline, &link_tag[0], elCount); 
-    ESP_LOGI(TAG, "[1.6] Link elements together: %d", elCount);
+    audio_pipeline_link(audioMain.pipeline, &audioMain.linkElementsAll[0], audioMain.linkElementsAllCount); 
+
+    ESP_LOGI(TAG, "Link tags short: %s, %s, %s, %s, %s", audioMain.linkElementsNoProcessing[0], 
+             (link_idx_No_proc > 0) ? audioMain.linkElementsNoProcessing[1] : "",
+             (link_idx_No_proc > 1) ? audioMain.linkElementsNoProcessing[2] : "",
+             (link_idx_No_proc > 2) ? audioMain.linkElementsNoProcessing[3] : "",
+             (link_idx_No_proc > 3) ? audioMain.linkElementsNoProcessing[4] : "");
+    
+    ESP_LOGI(TAG, "[1.6] Link elements together: %d", audioMain.linkElementsAllCount);
+
+    audioMain.lineWithProcess = true;
 
     return &audioMain;
 }
 
+esp_err_t JkkAudioMainOnOffProcessing(bool on, audio_event_iface_handle_t evt){
+    if(audioMain.lineWithProcess == on) {
+        ESP_LOGI(TAG, "Pipeline same state, no change");
+        return ESP_OK;
+    }
+    esp_err_t ret = audio_pipeline_stop(audioMain.pipeline);
+    ret |= audio_pipeline_wait_for_stop(audioMain.pipeline);
+    ret |= audio_pipeline_reset_ringbuffer(audioMain.pipeline);
+  //  ret |= audio_pipeline_reset_items_state(audioMain.pipeline);
+
+    if(ret != ESP_OK) return ret;
+
+    ret = audio_pipeline_unlink(audioMain.pipeline);
+
+    if(on) {
+        ret |= audio_pipeline_link(audioMain.pipeline, &audioMain.linkElementsAll[0], audioMain.linkElementsAllCount);
+    }
+    else {
+        ret |= audio_pipeline_link(audioMain.pipeline, &audioMain.linkElementsNoProcessing[0], audioMain.linkElementsAllCount - 2);
+    }
+
+    audio_pipeline_set_listener(audioMain.pipeline, evt);
+
+    ret |= audio_pipeline_run(audioMain.pipeline);
+    if(ret == ESP_OK) audioMain.lineWithProcess = on;
+    return ret;
+}
+
+bool JkkAudioMainProcessState(void){
+    return audioMain.lineWithProcess;
+}
 
 void JkkAudioMain_deinit(void) {
     if (audioMain.pipeline != NULL) {
@@ -391,6 +445,9 @@ void JkkAudioMain_deinit(void) {
         }
         if (audioMain.split != NULL) {
             audio_pipeline_unregister(audioMain.pipeline, audioMain.split);
+        }
+        if (audioMain.vmeter != NULL) {
+            audio_pipeline_unregister(audioMain.pipeline, audioMain.vmeter);
         }
         if (audioMain.processing != NULL) {     
             audio_pipeline_unregister(audioMain.pipeline, audioMain.processing);
@@ -415,6 +472,10 @@ void JkkAudioMain_deinit(void) {
     if (audioMain.split != NULL) {
         audio_element_deinit(audioMain.split);
         audioMain.split = NULL;
+    }
+    if (audioMain.vmeter != NULL) {
+        audio_element_deinit(audioMain.vmeter);
+        audioMain.vmeter = NULL;
     }
     if (audioMain.processing != NULL) {
         audio_element_deinit(audioMain.processing);

@@ -15,14 +15,20 @@
 extern "C" {
 #endif
 
+#define JKK_MAX_PIPELINE_ELEMENTS (6)
+
 typedef struct JkkAudioMain_s {
     audio_pipeline_handle_t pipeline;
     audio_element_handle_t input;
-    audio_element_handle_t parser;
+    audio_element_handle_t vmeter;
     audio_element_handle_t decoder;
     audio_element_handle_t split;
     audio_element_handle_t processing;
     audio_element_handle_t output;
+    const char *linkElementsAll[JKK_MAX_PIPELINE_ELEMENTS];
+    const char *linkElementsNoProcessing[JKK_MAX_PIPELINE_ELEMENTS - 1];
+    int linkElementsAllCount;
+    bool lineWithProcess;
     int input_type; // 0 - raw, 1 - i2s, 2 - fatfs, 3 - http
     int output_type; // 0 - raw, 1 - i2s, 2 - fatfs, 3 - http
     int processing_type; // 0 - none, 1 - equalizer
@@ -44,6 +50,10 @@ esp_err_t JkkAudioSetUrl(const char *url, bool out);
 esp_err_t JkkAudioRestartStream(void);
 
 JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, int rawSplitNr);
+
+esp_err_t JkkAudioMainOnOffProcessing(bool on, audio_event_iface_handle_t evt);
+
+bool JkkAudioMainProcessState(void);
 
 void JkkAudioMain_deinit(void);
 

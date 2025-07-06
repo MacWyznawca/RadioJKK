@@ -27,12 +27,22 @@ extern "C" {
 #define EPOCH_TIMESTAMP (978307200l)
 
 #define JKK_RADIO_NVS_NAMESPACE "jkk_radio"
+#define JKK_RADIO_NVS_EQ_NAMESPACE "jkk_radio_EQ"
 #define JKK_RADIO_NVS_STATION_KEY "station%03X"
+#define JKK_RADIO_NVS_EQUALIZER_KEY "equalizer%03X"
 
 #define SD_RECORDS_PATH "/sdcard/rec"
 
 #define JKK_RADIO_MAX_STATIONS (20) // Maximum number of radio stations
-#define JKK_RADIO_MAX_EBMEDDED_STATIONS (4) // Maximum number of radio stations
+#define JKK_RADIO_MAX_EBMEDDED_STATIONS (4) // Maximum number of embedded radio stations
+
+#define JKK_RADIO_MAX_EQ_PRESETS (10) // Maximum number of equalizers preset
+#define JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS (3) // Maximum number of embedded equalizers preset
+
+typedef struct JkkRadioEqualizer_s {
+    char name[16];
+    int gain[10];
+} JkkRadioEqualizer_t;
 
 typedef struct JkkRadioStations_s {
     char uri[128]; // URI of the radio station
@@ -64,8 +74,11 @@ typedef struct JkkRadio_s {
     int current_station; // Current station index
     int station_count; // Total number of stations
     int current_eq;
+    int eq_count;
     bool is_playing; // Flag indicating if the radio is currently playing
+    bool is_ChangingStation; // Flag indicating if the radio is currently playing
     JkkRadioStations_t *jkkRadioStations; // Pointer to the array of radio stations
+    JkkRadioEqualizer_t *eqPresets;
     char wifiSSID[32]; // WiFi SSID
     char wifiPassword[64]; // WiFi Password
 } JkkRadio_t;
@@ -76,6 +89,16 @@ typedef enum  {
     JKK_RADIO_STATION_FIRST = 0, // First station
     JKK_RADIO_STATION_NEXT = 1, // Next station
 } changeStation_e;
+
+typedef enum  {
+    JKK_RADIO_CMD_SET_STATION = 100, 
+    JKK_RADIO_CMD_SET_EQUALIZER = 101, 
+    JKK_RADIO_CMD_SET_UNKNOW, 
+} customCmd_e;
+
+void JkkRadioSetStation(uint16_t station);
+
+esp_err_t JkkRadioSendMessageToMain(int mess, int command);
 
 #ifdef __cplusplus
 }

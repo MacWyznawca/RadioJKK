@@ -118,7 +118,7 @@ static esp_err_t as1_led_indicator_pattern(void *handle, int pat, int value){
 }
 
 display_service_handle_t audio_board_led_init(void){
-  //  gpio_reset_pin((gpio_num_t)get_green_led_gpio());
+    gpio_reset_pin((gpio_num_t)get_green_led_gpio());
     led_indicator_handle_t led = led_indicator_init((gpio_num_t)get_green_led_gpio());
     display_service_config_t display = {
         .based_cfg = {
@@ -130,12 +130,16 @@ display_service_handle_t audio_board_led_init(void){
             .service_stop = NULL,
             .service_destroy = NULL,
             .service_ioctl = as1_led_indicator_pattern,
-            .service_name = "DISPLAY_serv",
+            .service_name = "DISP_serv",
             .user_data = NULL,
         },
         .instance = led,
     };
+#if defined(CONFIG_JKK_RADIO_USING_EXT_KEYS) 
+    return NULL;
+#else
     return display_service_create(&display);
+#endif
 }
 
 esp_err_t audio_board_key_init(esp_periph_set_handle_t set)
@@ -143,9 +147,9 @@ esp_err_t audio_board_key_init(esp_periph_set_handle_t set)
     periph_button_cfg_t btn_cfg = {
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
         .gpio_mask = (1ULL << get_input_mode_id())     | \
-                     (1ULL << get_input_set_id())   | \
-                     (1ULL << get_input_rec_id())      | \
-                     (1ULL << get_input_play_id()),
+                     (1ULL << get_input_volup_id())      | \
+                     (1ULL << get_input_set_id())      | \
+                     (1ULL << get_input_voldown_id()),
 #else
         .gpio_mask = (1ULL << get_input_volup_id())     | \
                      (1ULL << get_input_voldown_id())   | \
@@ -154,7 +158,7 @@ esp_err_t audio_board_key_init(esp_periph_set_handle_t set)
                      (1ULL << get_input_rec_id())       | \
                      (1ULL << get_input_play_id()),
 #endif
-        .long_press_time_ms = 1000
+        .long_press_time_ms = 700
     };
     esp_periph_handle_t button_handle = periph_button_init(&btn_cfg);
     AUDIO_NULL_CHECK(TAG, button_handle, return ESP_ERR_ADF_MEMORY_LACK);

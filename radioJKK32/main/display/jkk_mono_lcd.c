@@ -22,6 +22,12 @@
 #include "driver/i2c_master.h"
 #include "lvgl.h"
 
+#include "jkk_tools.h"
+
+#include "jkk_lcd_port.h"
+
+#include "../jkk_radio.h"
+
 
 #if CONFIG_JKK_RADIO_LCD_CONTROLLER_SH1107
 #include "esp_lcd_sh1107.h"
@@ -33,124 +39,50 @@
 
 static const char *TAG = "LCD";
 
-#define I2C_BUS_PORT  I2C_NUM_1
+static lv_obj_t *radioLabel = NULL;
+static lv_obj_t *volLabel = NULL;
+static lv_obj_t *recLabel = NULL;
+static lv_obj_t *eqLabel = NULL;
+static lv_obj_t *timeLabel = NULL;
+static lv_obj_t *line = NULL;
 
-#define JKK_RADIO_LCD_PIXEL_CLOCK_HZ    (1000 * 1000)
-#define JKK_RADIO_PIN_NUM_SDA           18
-#define JKK_RADIO_PIN_NUM_SCL           5
-#define JKK_RADIO_PIN_NUM_RST           -1
-#define JKK_RADIO_I2C_HW_ADDR           0x3C
+static lv_obj_t *roller = NULL;
+static lv_group_t *rollGroup;
+static jkkRollerMode_t rollerMode = JKK_ROLLER_MODE_HIDE;
 
+static lv_timer_t *rollerTimer = NULL;
+static lv_timer_t *stationScrollTimer = NULL;
 
-// The pixel number in horizontal and vertical
-#if CONFIG_JKK_RADIO_LCD_CONTROLLER_SSD1306
-#define JKK_RADIO_LCD_H_RES              128
-#define JKK_RADIO_LCD_V_RES              CONFIG_JKK_RADIO_SSD1306_HEIGHT
-#elif CONFIG_JKK_RADIO_LCD_CONTROLLER_SH1107
-#define JKK_RADIO_LCD_H_RES              64
-#define JKK_RADIO_LCD_V_RES              128
-#endif
-// Bit number used to represent command and parameter
-#define JKK_RADIO_LCD_CMD_BITS           8
-#define JKK_RADIO_LCD_PARAM_BITS         8
+static lv_indev_t *indev_encoder = NULL;
+static uint32_t key = 0;
+static int8_t keyPressed = -1;
 
-#define JKK_RADIO_LVGL_TASK_STACK_SIZE   (5 * 1024)
-#define JKK_RADIO_LVGL_TASK_PRIORITY     4
-#define JKK_RADIO_LVGL_PALETTE_SIZE      8
+static lv_point_precise_t line_points[] =  {{0, 0}, {128, 0}};
 
-#define JKK_RADIO_LVGL_TICK_PERIOD_MS    3
+void ScrollLabTimerHandler(lv_timer_t * timer){
+    lv_timer_pause(timer);
+    lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_SCROLL_CIRCULAR);
+}
 
-static EXT_RAM_BSS_ATTR uint8_t oled_buffer[JKK_RADIO_LCD_H_RES * JKK_RADIO_LCD_V_RES / 8];
-
-static TaskHandle_t dispaskHandle = NULL;
-
-static SemaphoreHandle_t lvglMux = NULL;
-
-//static int taskMaxSleep_ms = 1000;
-
-lv_disp_t *display = NULL;
-lv_obj_t *radioLabel = NULL;
-lv_obj_t *volLabel = NULL;
-lv_obj_t *recLabel = NULL;
-lv_obj_t *eqLabel = NULL;
-
-static void Utf8ToAsciiPL(const char *input, char *output) {
-    const unsigned char *src = (const unsigned char *)input;
-    char *dst = output;
-
-    while (*src) {
-        unsigned char c1 = src[0];
-        unsigned char c2 = src[1];
-
-        // POLSKIE I ŁACIŃSKIE ZNAKI DIACENTRYCZNE
-        if (c1 == 0xC4) {
-            switch (c2) {
-                case 0x84: *dst++ = 'A'; break; // Ą
-                case 0x86: *dst++ = 'C'; break; // Ć
-                case 0x98: *dst++ = 'E'; break; // Ę
-                case 0x81: *dst++ = 'L'; break; // Ł
-                case 0x83: *dst++ = 'N'; break; // Ń
-                case 0x9A: *dst++ = 'S'; break; // Ś
-                case 0xB9: *dst++ = 'Z'; break; // Ź
-                case 0xBB: *dst++ = 'Z'; break; // Ż
-                case 0x85: *dst++ = 'a'; break; // ą
-                case 0x87: *dst++ = 'c'; break; // ć
-                case 0x99: *dst++ = 'e'; break; // ę
-                case 0x82: *dst++ = 'l'; break; // ł
-                case 0x9B: *dst++ = 's'; break; // ś
-                case 0xBA: *dst++ = 'z'; break; // ź
-                case 0xBC: *dst++ = 'z'; break; // ż
-                default: src += 2; continue;
-            }
-            src += 2;
-        } else if (c1 == 0xC5) {
-            switch (c2) {
-                case 0x81: *dst++ = 'L'; break; // Ł
-                case 0x82: *dst++ = 'l'; break; // ł
-                case 0x83: *dst++ = 'N'; break; // Ń
-                case 0x84: *dst++ = 'n'; break; // ń
-                case 0x9A: *dst++ = 'S'; break; // Ś
-                case 0x9B: *dst++ = 's'; break; // ś
-                case 0xB9: *dst++ = 'Z'; break; // Ź
-                case 0xBA: *dst++ = 'z'; break; // ź
-                case 0xBB: *dst++ = 'Z'; break; // Ż
-                case 0xBC: *dst++ = 'z'; break; // ż
-                default: src += 2; continue;
-            }
-            src += 2;
-        } else if (c1 == 0xC3) {
-            switch (c2) {
-                case 0x93: *dst++ = 'O'; break; // Ó
-                case 0xB3: *dst++ = 'o'; break; // ó
-                default: src += 2; continue;
-            }
-            src += 2;
-        } else {
-            *dst++ = *src++; // ASCII znak
-        }
-    }
-
-    *dst = '\0';
+void RollerHideTimerHandler(lv_timer_t * timer){
+    lv_timer_pause(timer);
+    JkkLcdButtonSet(LV_KEY_ESC, 1);
+    lv_obj_add_flag(roller, LV_OBJ_FLAG_HIDDEN); 
+    rollerMode = JKK_ROLLER_MODE_HIDE;
 }
 
 void JkkLcdStationTxt(char *stationName) {
-    if(display == NULL || radioLabel == NULL) {
+    if(radioLabel == NULL) {
         ESP_LOGE(TAG, "Display not initialized");
         return;
     }
     char stationNameTmp[130] = {0};
     Utf8ToAsciiPL(stationName, stationNameTmp);
-    if(JkkLcdPortLock(0)){;
-        if (strlen(stationNameTmp) > 127) {
-            // If the station name is longer than 20 characters, truncate it to fit the display
-            char truncatedName[128] = {0};
-            strncpy(truncatedName, stationNameTmp, 127);
-            truncatedName[20] = '\0'; // Ensure null-termination
-            lv_label_set_text(radioLabel, truncatedName);
-        } else {
-            lv_label_set_text(radioLabel, stationNameTmp);
-        }
-        // Unlock the port
+    if(JkkLcdPortLock(0)){   
+        lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_CLIP);   
+        lv_label_set_text(radioLabel, stationNameTmp);       
+        lv_timer_reset(stationScrollTimer);
+        lv_timer_resume(stationScrollTimer);
         JkkLcdPortUnlock();
     } else {
         ESP_LOGE(TAG, "Failed to lock the port for updating station text");
@@ -159,7 +91,7 @@ void JkkLcdStationTxt(char *stationName) {
 
 void JkkLcdRec(bool rec) {
     static bool recState = false;
-    if(display == NULL || recLabel == NULL) {
+    if(recLabel == NULL) {
         ESP_LOGE(TAG, "Display not initialized");
         return;
     }
@@ -167,8 +99,8 @@ void JkkLcdRec(bool rec) {
         ESP_LOGD(TAG, "Recording state unchanged: %s", rec ? "true" : "false");
         return;
     }
-    if(JkkLcdPortLock(0)){;
-        if(rec) lv_label_set_text_static(recLabel, "R");
+    if(JkkLcdPortLock(0)){
+        if(rec) lv_label_set_text_static(recLabel, "rec");
         else lv_label_set_text_static(recLabel, "");
         JkkLcdPortUnlock();
         recState = rec;
@@ -176,7 +108,7 @@ void JkkLcdRec(bool rec) {
 }
 
 void JkkLcdVolumeInt(int vol) {
-    if(display == NULL || volLabel == NULL) {
+    if(volLabel == NULL) {
         ESP_LOGE(TAG, "Display not initialized");
         return;
     }
@@ -185,7 +117,7 @@ void JkkLcdVolumeInt(int vol) {
         snprintf(volTxt, sizeof(volTxt), "MUTE");
     }
     else{
-        snprintf(volTxt, sizeof(volTxt), "V:%d%%", vol);
+        snprintf(volTxt, sizeof(volTxt), "V%d%%", vol);
     }
     if(JkkLcdPortLock(0)){
         lv_label_set_text(volLabel, volTxt);
@@ -194,7 +126,7 @@ void JkkLcdVolumeInt(int vol) {
 }
 
 void JkkLcdEqTxt(char *eqName) {
-    if(display == NULL || eqLabel == NULL) {
+    if(eqLabel == NULL) {
         ESP_LOGE(TAG, "Display not initialized");
         return;
     }
@@ -204,206 +136,170 @@ void JkkLcdEqTxt(char *eqName) {
     }
 }
 
-bool JkkLcdPortLock(uint32_t timeout_ms){
-    assert(lvglMux && "LvglJkkInit must be called first");
-
-    const TickType_t timeoutTicks = (timeout_ms == 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
-    return xSemaphoreTakeRecursive(lvglMux, timeoutTicks) == pdTRUE;
+void JkkLcdTimeTxt(char *timeName) {
+    if(timeName == NULL) {
+        ESP_LOGE(TAG, "Display not initialized");
+        return;
+    }
+    if(JkkLcdPortLock(0)){
+        lv_label_set_text(timeLabel, timeName);
+        JkkLcdPortUnlock();
+    }
 }
 
-void JkkLcdPortUnlock(void){
-    assert(lvglMux && "lvgl_port_init must be called first");
-    xSemaphoreGiveRecursive(lvglMux);
+void JkkLcdButtonSet(int keyCode, int8_t pressed) {
+    if(keyCode < LV_KEY_ENTER || keyCode > LV_KEY_ESC) {
+        ESP_LOGE(TAG, "Invalid key code: %d", keyCode);
+        return;
+    }
+    if(pressed < 0 || pressed > 1) {
+        ESP_LOGE(TAG, "Invalid pressed state: %d", pressed);
+        return;
+    }
+    ESP_LOGI(TAG, "JkkNavigationButtonsRead: key=%d, keyPressed=%d", keyCode, pressed);
+
+
+    if(keyCode != LV_KEY_ESC && JkkLcdPortLock(0)){
+        lv_timer_reset(rollerTimer);
+        lv_timer_resume(rollerTimer);
+        JkkLcdPortUnlock();
+    }
+
+    key = keyCode;
+    keyPressed = pressed;
 }
 
-static bool jkk_lcd_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t io_panel, esp_lcd_panel_io_event_data_t *edata, void *user_ctx){
-    lv_display_t *disp = (lv_display_t *)user_ctx;
-    lv_display_flush_ready(disp);
-    return false;
+void JkkLcdVolumeIndicatorCallback(int left_volume, int right_volume) {
+    line_points[1].x = 66 + (right_volume * 60 / 100);
+    line_points[0].x = 60 - ((left_volume * 60) / 100);
+    if(JkkLcdPortLock(0)){
+        lv_obj_invalidate(line);
+        JkkLcdPortUnlock();
+    }
 }
 
-static void jkk_lcd_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map){
-    esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
+static void JkkNavigationButtonsRead(lv_indev_t *indev_drv, lv_indev_data_t *data){
+    static uint32_t last_key = 0;
+  //  static int8_t lastPressed = -1;
 
-    // This is necessary because LVGL reserves 2 x 4 bytes in the buffer, as these are assumed to be used as a palette. Skip the palette here
-    // More information about the monochrome, please refer to https://docs.lvgl.io/9.2/porting/display.html#monochrome-displays
-    px_map += JKK_RADIO_LVGL_PALETTE_SIZE;
-
-    uint16_t hor_res = lv_display_get_physical_horizontal_resolution(disp);
-    int x1 = area->x1;
-    int x2 = area->x2;
-    int y1 = area->y1;
-    int y2 = area->y2;
-
-    for (int y = y1; y <= y2; y++) {
-        for (int x = x1; x <= x2; x++) {
-            /* The order of bits is MSB first
-                        MSB           LSB
-               bits      7 6 5 4 3 2 1 0
-               pixels    0 1 2 3 4 5 6 7
-                        Left         Right
-            */
-            bool chroma_color = (px_map[(hor_res >> 3) * y  + (x >> 3)] & 1 << (7 - x % 8));
-
-            /* Write to the buffer as required for the display.
-            * It writes only 1-bit for monochrome displays mapped vertically.*/
-            uint8_t *buf = oled_buffer + hor_res * (y >> 3) + (x);
-            if (chroma_color) {
-                (*buf) &= ~(1 << (y % 8));
-            } else {
-                (*buf) |= (1 << (y % 8));
-            }
+    if(keyPressed == 1) {
+        if (key == LV_KEY_LEFT) {
+            data->key = LV_KEY_LEFT;
+            last_key = LV_KEY_LEFT;
+            data->state = LV_INDEV_STATE_PRESSED;
+        } else if (key == LV_KEY_RIGHT) {
+            data->key = LV_KEY_RIGHT;
+            last_key = LV_KEY_RIGHT;
+            data->state = LV_INDEV_STATE_PRESSED;
+        } else if (key == LV_KEY_ENTER) {
+            data->key = LV_KEY_ENTER;
+            last_key = LV_KEY_ENTER;
+            data->state = LV_INDEV_STATE_PRESSED;
+        } else if (key == LV_KEY_ESC) {
+            data->key = LV_KEY_ESC;
+            last_key = LV_KEY_ESC;
+            data->state = LV_INDEV_STATE_PRESSED;
+        }
+        else {
+            data->key = last_key;
+            data->state = LV_INDEV_STATE_RELEASED;
+            last_key = 0;
         }
     }
-    // pass the draw buffer to the driver
-    esp_lcd_panel_draw_bitmap(panel_handle, x1, y1, x2 + 1, y2 + 1, oled_buffer);
+    
+    key = 0;
 }
 
-static void jkk_lcd_lvgl_port_task(void *arg){
-    ESP_LOGI(TAG, "Starting LVGL task");
-    uint32_t task_delay_ms = 0;
+static void JkkLcdShowObj(lv_obj_t *obj, bool show){
+    if(obj == NULL) {
+        ESP_LOGE(TAG, "Invalid object");
+        return;
+    }
+    if(JkkLcdPortLock(0)){
+        if(show) {
+            lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
 
-    while (1) {
-        if (JkkLcdPortLock(0)) { 
-            /* Handle LVGL */
-            task_delay_ms = lv_timer_handler();
-            JkkLcdPortUnlock();
+            lv_timer_reset(rollerTimer);
+            lv_timer_resume(rollerTimer);
         } else {
-            task_delay_ms = 1; /*Keep trying*/
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN); 
+            if(obj == roller) rollerMode = JKK_ROLLER_MODE_HIDE;
+            lv_timer_pause(rollerTimer);
         }
-
-        if (task_delay_ms == LV_NO_TIMER_READY) {
-            task_delay_ms = 1000;
-        }
-
-        /* Minimal dealy for the task. When there is too much events, it takes time for other tasks and interrupts. */
-        vTaskDelay(pdMS_TO_TICKS(task_delay_ms));
+        JkkLcdPortUnlock();
     }
 }
 
-static void IncreaseLvglTick(void *arg){
-    /* Tell LVGL how many milliseconds has elapsed */
-    lv_tick_inc(JKK_RADIO_LVGL_TICK_PERIOD_MS);
-}
-
-static uint32_t MsTick(void){
-    return esp_timer_get_time() / 1000;
-}
-
-void JkkLcdInit(void){
-    ESP_LOGI(TAG, "Initialize I2C bus");
-    i2c_master_bus_handle_t i2c_bus = NULL;
-    i2c_master_bus_config_t bus_config = {
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 7,
-        .i2c_port = I2C_BUS_PORT,
-        .sda_io_num = JKK_RADIO_PIN_NUM_SDA,
-        .scl_io_num = JKK_RADIO_PIN_NUM_SCL,
-        .flags.enable_internal_pullup = true,
-    };
-    ESP_ERROR_CHECK(i2c_new_master_bus(&bus_config, &i2c_bus));
-
-    ESP_LOGI(TAG, "Install panel IO");
-    esp_lcd_panel_io_handle_t io_handle = NULL;
-    esp_lcd_panel_io_i2c_config_t io_config = {
-        .dev_addr = JKK_RADIO_I2C_HW_ADDR,
-        .scl_speed_hz = JKK_RADIO_LCD_PIXEL_CLOCK_HZ,
-        .control_phase_bytes = 1,               // According to SSD1306 datasheet
-        .lcd_cmd_bits = JKK_RADIO_LCD_CMD_BITS,   // According to SSD1306 datasheet
-        .lcd_param_bits = JKK_RADIO_LCD_CMD_BITS, // According to SSD1306 datasheet
-#if CONFIG_JKK_RADIO_LCD_CONTROLLER_SSD1306
-        .dc_bit_offset = 6,                     // According to SSD1306 datasheet
-#elif CONFIG_JKK_RADIO_LCD_CONTROLLER_SH1107
-        .dc_bit_offset = 0,                     // According to SH1107 datasheet
-        .flags =
-        {
-            .disable_control_phase = 1,
+static void RadioRollerHandler(lv_event_t * e){
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t * obj = lv_event_get_target_obj(e);
+    if(code == LV_EVENT_VALUE_CHANGED){
+        int indx = lv_roller_get_selected(obj);
+        ESP_LOGI(TAG, "Selected: %d\n", indx);
+        customCmd_e command = JKK_RADIO_CMD_SET_UNKNOW;
+        switch (rollerMode) {
+            case JKK_ROLLER_MODE_STATION_LIST:
+                command = JKK_RADIO_CMD_SET_STATION;
+            break;
+            case JKK_ROLLER_MODE_EQUALIZER_LIST:
+                command = JKK_RADIO_CMD_SET_EQUALIZER;
+            break;
+            default:
+            break;
         }
-#endif
-    };
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(i2c_bus, &io_config, &io_handle));
+        JkkLcdShowRoller(false, UINT8_MAX, JKK_ROLLER_MODE_HIDE);
+        JkkRadioSendMessageToMain(indx, command);
+    }
+}
 
-    ESP_LOGI(TAG, "Install SSD1306 panel driver");
-    esp_lcd_panel_handle_t panel_handle = NULL;
-    esp_lcd_panel_dev_config_t panel_config = {
-        .bits_per_pixel = 1,
-        .reset_gpio_num = JKK_RADIO_PIN_NUM_RST,
-    };
-#if CONFIG_JKK_RADIO_LCD_CONTROLLER_SSD1306
-    ESP_LOGI(TAG, "Using SSD1306 controller");
-    esp_lcd_panel_ssd1306_config_t ssd1306_config = {
-        .height = JKK_RADIO_LCD_V_RES,
-    };
-    panel_config.vendor_config = &ssd1306_config;
-    ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(io_handle, &panel_config, &panel_handle));
-#elif CONFIG_JKK_RADIO_LCD_CONTROLLER_SH1107
-    ESP_LOGI(TAG, "Using SH1107 controller");
-    ESP_ERROR_CHECK(esp_lcd_new_panel_sh1107(io_handle, &panel_config, &panel_handle));
-#endif
+jkkRollerMode_t JkkLcdRollerMode(void){
+    if(JkkLcdPortLock(0)){
+        rollerMode = lv_obj_has_flag(roller, LV_OBJ_FLAG_HIDDEN) ? JKK_ROLLER_MODE_HIDE : rollerMode;
+        JkkLcdPortUnlock();
+    }
+    return rollerMode;
+}
 
-    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
-    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+void JkkLcdShowRoller(bool show, uint8_t idx, jkkRollerMode_t mode){
+    if(mode > JKK_ROLLER_MODE_HIDE && mode < JKK_ROLLER_MODE_UNKNOWN) rollerMode = mode;
+    JkkLcdShowObj(roller, show);
+    
+    if(idx < lv_roller_get_option_count(roller) - 1) {
+        if(JkkLcdPortLock(0)){
+            lv_roller_set_selected(roller, idx, LV_ANIM_ON);
+            JkkLcdPortUnlock();
+        }
+    }
+}
 
-    esp_lcd_panel_mirror(panel_handle, true, true);
+void JkkLcdSetRollerOptions(char *options, uint8_t idx){
+    if(JkkLcdPortLock(0)){
+        lv_roller_set_options(roller, options, LV_ROLLER_MODE_INFINITE);
+        if(idx < lv_roller_get_option_count(roller) - 1) {
+            lv_roller_set_selected(roller, idx, LV_ANIM_OFF);
+        }
+        JkkLcdPortUnlock();
+    }
+}
 
-    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
-
-#if CONFIG_JKK_RADIO_LCD_CONTROLLER_SH1107
-    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));
-#endif
-
-    ESP_LOGI(TAG, "Initialize LVGL");
-    lv_init();
-    lv_tick_set_cb(MsTick);
-    // create a lvgl display
-    display = lv_display_create(JKK_RADIO_LCD_H_RES, JKK_RADIO_LCD_V_RES);
-    // associate the i2c panel handle to the display
-    lv_display_set_user_data(display, panel_handle);
-    // create draw buffer
-    void *buf = NULL;
-    ESP_LOGI(TAG, "Allocate separate LVGL draw buffers");
-    // LVGL reserves 2 x 4 bytes in the buffer, as these are assumed to be used as a palette.
-    size_t draw_buffer_sz = JKK_RADIO_LCD_H_RES * JKK_RADIO_LCD_V_RES / 8 + JKK_RADIO_LVGL_PALETTE_SIZE;
-    buf = heap_caps_calloc(1, draw_buffer_sz, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    assert(buf);
-
-
-    // LVGL9 suooprt new monochromatic format.
-    lv_display_set_color_format(display, LV_COLOR_FORMAT_I1);
-    // initialize LVGL draw buffers
-    lv_display_set_buffers(display, buf, NULL, draw_buffer_sz, LV_DISPLAY_RENDER_MODE_FULL);
-    // set the callback which can copy the rendered image to an area of the display
-    lv_display_set_flush_cb(display, jkk_lcd_lvgl_flush_cb);
-
-
-    ESP_LOGI(TAG, "Register io panel event callback for LVGL flush ready notification");
-    const esp_lcd_panel_io_callbacks_t cbs = {
-        .on_color_trans_done = jkk_lcd_notify_lvgl_flush_ready,
-    };
-    /* Register done callback */
-    esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display);
-
-    ESP_LOGI(TAG, "Create LVGL task");
-
-    const esp_timer_create_args_t lvgl_tick_timer_args = {
-        .callback = &IncreaseLvglTick,
-        .name = "lvglTick"
-    };
-    esp_timer_handle_t lvgl_tick_timer = NULL;
-    ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, JKK_RADIO_LVGL_TICK_PERIOD_MS * 1000));
-
-    lvglMux = xSemaphoreCreateRecursiveMutex();
-    xTaskCreatePinnedToCoreWithCaps(jkk_lcd_lvgl_port_task, "LVGL", JKK_RADIO_LVGL_TASK_STACK_SIZE, NULL, JKK_RADIO_LVGL_TASK_PRIORITY, &dispaskHandle, 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+esp_err_t JkkLcdUiInit(void){
+    lv_disp_t *display = JkkLcdPortInit();
 
     if(JkkLcdPortLock(0)){
         lv_obj_t *scr = lv_display_get_screen_active(display);
+
+        indev_encoder = lv_indev_create();
+        lv_indev_set_type(indev_encoder, LV_INDEV_TYPE_KEYPAD);
+        lv_indev_set_read_cb(indev_encoder, JkkNavigationButtonsRead);
+        lv_indev_enable(indev_encoder, true);
+        lv_indev_set_display(indev_encoder, display);
+
         radioLabel = lv_label_create(scr);
         lv_obj_set_style_text_font(radioLabel, &lv_font_unscii_16, 0);
-        lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_SCROLL_CIRCULAR); /* Circular scroll */
-        lv_obj_set_style_text_align(radioLabel, LV_TEXT_ALIGN_CENTER, 0);
+        lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_SCROLL_CIRCULAR); /* Circular scroll LV_LABEL_LONG_SCROLL_CIRCULAR */  
+        lv_obj_set_style_text_align(radioLabel, LV_TEXT_ALIGN_LEFT, 0);
         lv_label_set_text(radioLabel, "Radio JKK32 - Multifunction Internet Radio Player");
-        lv_obj_set_width(radioLabel, JKK_RADIO_LCD_H_RES);
+        lv_obj_set_width(radioLabel, lv_display_get_horizontal_resolution(display));
         lv_obj_align(radioLabel, LV_ALIGN_TOP_MID, 0, 0);
 
         volLabel = lv_label_create(scr);
@@ -417,16 +313,71 @@ void JkkLcdInit(void){
         lv_obj_set_style_text_font(recLabel, &lv_font_unscii_8, 0);
         lv_obj_set_style_text_align(recLabel, LV_TEXT_ALIGN_RIGHT, 0);
         lv_label_set_text(recLabel, "");
-        lv_obj_set_width(recLabel, 16);
-        lv_obj_align(recLabel, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+        lv_obj_set_width(recLabel, 26);
+        lv_obj_align(recLabel, LV_ALIGN_RIGHT_MID, 0, 0);
 
         eqLabel = lv_label_create(scr);
         lv_obj_set_style_text_font(eqLabel, &lv_font_unscii_8, 0);
         lv_obj_set_style_text_align(eqLabel, LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_text(eqLabel, "");
         lv_obj_set_width(eqLabel, 42);
-        lv_obj_align(eqLabel, LV_ALIGN_BOTTOM_MID, 8, 0);
+        lv_obj_align(eqLabel, LV_ALIGN_BOTTOM_MID, -2, 0);
+
+        timeLabel = lv_label_create(scr);
+        lv_obj_set_style_text_font(timeLabel, &lv_font_unscii_8, 0);
+        lv_obj_set_style_text_align(timeLabel, LV_TEXT_ALIGN_RIGHT, 0);
+        lv_label_set_text(timeLabel, "");
+        lv_obj_set_width(timeLabel, 42);
+        lv_obj_align(timeLabel, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+
+        static lv_style_t style_line;
+        lv_style_init(&style_line);
+        lv_style_set_line_width(&style_line, 3);
+
+        line = lv_line_create(lv_screen_active());
+        lv_line_set_points(line, line_points, 2);     /*Set the points*/
+        lv_obj_add_style(line, &style_line, 0);
+        lv_obj_align(line, LV_ALIGN_BOTTOM_MID, 0, -18);
+
+        rollGroup = lv_group_create();
+
+        static lv_style_t style_rol;
+        lv_style_init(&style_rol);
+        lv_style_set_opa(&style_rol, LV_OPA_COVER); 
+        lv_style_set_text_font(&style_rol, &lv_font_unscii_8);
+        lv_style_set_radius(&style_rol, 0);
+        
+        roller = lv_roller_create(scr);  
+        lv_roller_set_options(roller, "-", LV_ROLLER_MODE_INFINITE);
+        
+        lv_obj_add_style(roller, &style_rol, 0);
+        lv_obj_set_width(roller, 68);
+
+        lv_obj_set_style_text_line_space(roller, 2, 0);
+        lv_roller_set_visible_row_count(roller, 5);
+        lv_obj_align(roller, LV_ALIGN_CENTER, 0, 0);
+        lv_roller_set_selected(roller, 0, LV_ANIM_OFF);
+        lv_obj_add_event_cb(roller, RadioRollerHandler, LV_EVENT_VALUE_CHANGED, NULL);
+
+
+        lv_group_add_obj(rollGroup, roller);
+
+        lv_indev_set_group(indev_encoder, rollGroup);
+
+        lv_obj_add_flag(roller, LV_OBJ_FLAG_HIDDEN);
+        rollerMode = JKK_ROLLER_MODE_HIDE;
+
+        stationScrollTimer = lv_timer_create_basic();
+        lv_timer_pause(stationScrollTimer);
+        lv_timer_set_cb(stationScrollTimer, ScrollLabTimerHandler);
+        lv_timer_set_period(stationScrollTimer, 750);
+
+        rollerTimer = lv_timer_create_basic();
+        lv_timer_pause(rollerTimer);
+        lv_timer_set_cb(rollerTimer, RollerHideTimerHandler);
+        lv_timer_set_period(rollerTimer, JKK_ROLLER_TIME_TO_HIDE * 1000);
 
         JkkLcdPortUnlock();  
     }
+    return ESP_OK;
 }

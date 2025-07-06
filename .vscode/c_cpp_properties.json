@@ -6,11 +6,13 @@
                 "/Users/jkk/esp/esp-idf/**",
                 "/Users/jkk/esp/esp-adf/**",
                 "/Users/jkk/esp/esp-idf/components/esp_wifi/include",
+                "/Users/jkk/esp/esp-idf/components/esp_common/include",
                 "/Users/jkk/esp/esp-idf/components/**",
                 "/Users/jkk/esp/esp-adf/components/**",
                 "/Users/jkk/esp/esp-adf/components",
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/radio/**"
+                "${workspaceFolder}/radioJKK32/**",
+                "${workspaceFolder}/radioJKK32/main/**"
             ],
             "browse": {
                 "path": [
@@ -22,10 +24,9 @@
                     "/Users/jkk/esp/esp-adf/components",
                     "/Users/jkk/esp/esp-adf/components/**",
                     "/Users/jkk/esp/esp-idf/components/**",
-                    "/Users/jkk/esp/esp-idf/components/esp_wifi",
-                    "/Users/jkk/esp/esp-idf/components/esp_wifi/**",
                     "${workspaceFolder}/**",
-                    "${workspaceFolder}/radio/**"
+                    "${workspaceFolder}/radioJKK32/**",
+                    "${workspaceFolder}/radioJKK32/main/**"
                 ],
                 "limitSymbolsToIncludedHeaders": false
             },

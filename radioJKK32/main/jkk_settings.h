@@ -20,6 +20,7 @@ extern "C" {
 
 esp_err_t JkkRadioSettingsRead(JkkRadio_t *jkkRadio);
 esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio);
+esp_err_t JkkRadioEqSdRead(JkkRadio_t *jkkRadio);
 
 #ifdef __cplusplus
 }

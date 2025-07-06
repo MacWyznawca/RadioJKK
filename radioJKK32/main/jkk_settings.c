@@ -18,11 +18,54 @@
 #include "jkk_radio.h"
 #include "jkk_nvs.h"
 
+#include "display/jkk_mono_lcd.h"
+
 #include "jkk_settings.h"
 
 static const char *TAG = "JKK_SETTI";
 
 extern const char stations_start[] asm("_binary_stations_txt_start"); 
+
+static const JkkRadioEqualizer_t eq_embedded[JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS] = {
+    {
+        .name = "flat",
+        .gain = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    }, 
+    {
+        .name = "rock",
+        .gain = {0, 6, 6, 4, 0, -1, -1, 0, 6, 10},
+    }, 
+    {
+        .name = "speak",
+        .gain = {-6, -4, -1, 1, 3, 3, 1, -1, -4, -6},
+    }, 
+};
+
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+static void JkkLcdReloadRoller(JkkRadio_t *jkkRadio){
+    char *lcdRollerOptions = NULL;
+
+    if(JkkLcdRollerMode() == JKK_ROLLER_MODE_STATION_LIST){
+        ESP_LOGI(TAG, "Loaded stations:");
+        lcdRollerOptions = heap_caps_calloc(jkkRadio->station_count, 10, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        for (int i = 0; i < jkkRadio->station_count; i++) {
+            strncat(lcdRollerOptions, jkkRadio->jkkRadioStations[i].nameShort, 8);
+            if(i < jkkRadio->station_count - 1) strcat(lcdRollerOptions, "\n");
+        }
+        JkkLcdSetRollerOptions(lcdRollerOptions, jkkRadio->current_station);
+    }
+    else if(JkkLcdRollerMode() == JKK_ROLLER_MODE_EQUALIZER_LIST){
+        ESP_LOGI(TAG, "Loaded equs:");
+        lcdRollerOptions = heap_caps_calloc(jkkRadio->eq_count, 10, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        for (int i = 0; i < jkkRadio->eq_count; i++) {
+            strncat(lcdRollerOptions, jkkRadio->eqPresets[i].name, 8);
+            if(i < jkkRadio->eq_count - 1) strcat(lcdRollerOptions, "\n");
+        }
+        JkkLcdSetRollerOptions(lcdRollerOptions, jkkRadio->current_eq);
+    }
+    if(lcdRollerOptions) free(lcdRollerOptions);
+}
+#endif
 
 esp_err_t JkkRadioSettingsRead(JkkRadio_t *jkkRadio) {
     if (jkkRadio == NULL) {
@@ -76,6 +119,9 @@ static void JkkRadioStationEmbeddedRead(JkkRadio_t *jkkRadio, char const *statio
         jkkRadio->jkkRadioStations[0].audioDes[0] = '\0'; // Default to empty audio description
         ESP_LOGI(TAG, "No stations provided, initialized with default station: %s", jkkRadio->jkkRadioStations[0].nameLong);
         jkkRadio->station_count = 1; // Set station count to 1 for the default station
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+        JkkLcdReloadRoller(jkkRadio);
+#endif
         return;
     }
     if(jkkRadio->jkkRadioStations) {
@@ -162,6 +208,10 @@ static void JkkRadioStationEmbeddedRead(JkkRadio_t *jkkRadio, char const *statio
     }
     free(stations); // Free the temporary string buffer
     jkkRadio->station_count = index;
+
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+    JkkLcdReloadRoller(jkkRadio);
+#endif
 }
 
 static int JkkRadioStationNvsCount(void){
@@ -172,7 +222,7 @@ static int JkkRadioStationNvsCount(void){
     esp_err_t ret = nvs_open(JKK_RADIO_NVS_NAMESPACE, NVS_READONLY, &nvsHandle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Error (%s) opening NVS nvsHandle!\n", esp_err_to_name(ret));
-        return ESP_ERR_NVS_INVALID_HANDLE;
+        return 0;
     }
     for(uint8_t i = 0; i < JKK_RADIO_MAX_STATIONS; i++) {
         char key[16] = {0};
@@ -224,7 +274,10 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             ESP_LOGW(TAG, "No stations found in NVS and /sdcard/stations.txt does not exist, using embedded stations");
             JkkRadioStationEmbeddedRead(jkkRadio, stations_start);
         }
-        return ESP_ERR_NOT_FOUND;
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+        JkkLcdReloadRoller(jkkRadio);
+#endif
+        return ESP_OK;
     }
 
     char lineStr[512];
@@ -324,7 +377,7 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             JkkNvsErase(key, JKK_RADIO_NVS_NAMESPACE);
         }
     }
-    if(index < nvsStationCount) {
+/*  if(index < nvsStationCount) {
         // If there are more stations in the file than in NVS, fill the rest with empty stations
         for(int i = index; i < sdStationCount; i++) {
             jkkRadio->jkkRadioStations[i].uri[0] = '\0';
@@ -334,7 +387,7 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             jkkRadio->jkkRadioStations[i].type = JKK_RADIO_UNKNOWN;
             jkkRadio->jkkRadioStations[i].audioDes[0] = '\0';
         }
-    }
+    } */
     fclose(fptr);
     ESP_LOGI(TAG, "Loaded %d stations from /sdcard/stations.txt", index);
 
@@ -347,8 +400,174 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
                  jkkRadio->jkkRadioStations[i].nameLong,
                  jkkRadio->jkkRadioStations[i].is_favorite ? "true" : "false",
                  jkkRadio->jkkRadioStations[i].type,
-                 jkkRadio->jkkRadioStations[i].audioDes);     
+                 jkkRadio->jkkRadioStations[i].audioDes);   
     }
     jkkRadio->station_count = index;
+
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+    JkkLcdReloadRoller(jkkRadio);
+#endif
+    return ESP_OK;
+}
+
+static int JkkRadioEqNvsCount(void){
+    nvs_handle_t nvsHandle;
+    nvs_type_t type = NVS_TYPE_ANY;
+    int eqCount = 0;
+
+    esp_err_t ret = nvs_open(JKK_RADIO_NVS_EQ_NAMESPACE, NVS_READONLY, &nvsHandle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Error (%s) opening NVS nvsHandle!\n", esp_err_to_name(ret));
+        return 0;
+    }
+    for(uint8_t i = 0; i < JKK_RADIO_MAX_EQ_PRESETS; i++) {
+        char key[16] = {0};
+        sprintf(key, JKK_RADIO_NVS_EQUALIZER_KEY, i);
+        ret = nvs_find_key(nvsHandle, key, &type);
+        if(ret == ESP_OK && type == NVS_TYPE_BLOB) {
+            eqCount++;
+        } else if (ret == ESP_ERR_NVS_NOT_FOUND) {
+            break; // No more stations found
+        }
+    }
+
+    nvs_close(nvsHandle);
+    ESP_LOGI(TAG, "Found %d equalizers in NVS", eqCount);
+    return eqCount;
+}
+
+
+esp_err_t JkkRadioEqSdRead(JkkRadio_t *jkkRadio) {
+    FILE *fptr;
+    int nvsEqCount = JkkRadioEqNvsCount();
+    int sdEqCount = 0;
+
+    if(jkkRadio->eqPresets) free(jkkRadio->eqPresets);
+
+    if(nvsEqCount > 0) {
+        jkkRadio->eqPresets = heap_caps_calloc(nvsEqCount, sizeof(JkkRadioEqualizer_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (jkkRadio->eqPresets == NULL) {
+            ESP_LOGE(TAG, "Memory allocation failed for jkkRadio->eqPresets");
+            return ESP_ERR_NO_MEM;
+        }
+        for(uint8_t i = 0; i < nvsEqCount; i++) {
+            char key[16] = {0};
+            sprintf(key, JKK_RADIO_NVS_EQUALIZER_KEY, i);
+            JkkNvsBlobGet(key, JKK_RADIO_NVS_EQ_NAMESPACE, &jkkRadio->eqPresets[i], NULL); 
+            ESP_LOGI(TAG, "Equalizer from NVS %d: name=%s",
+                     i, jkkRadio->eqPresets[i].name);
+        }
+        jkkRadio->eq_count = nvsEqCount;
+    }
+
+    fptr = fopen("/sdcard/eq.txt", "r");
+    if (fptr == NULL) {
+        ESP_LOGE(TAG, "Error opening file: /sdcard/eq.txt and no equalizers in NVS");
+        if(nvsEqCount == 0) {
+            ESP_LOGW(TAG, "No equalizers found in NVS and /sdcard/eq.txt does not exist, using embedded equalizers");
+            jkkRadio->eqPresets = heap_caps_calloc(JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS, sizeof(JkkRadioEqualizer_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            for(int i = 0; i < JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS; i++){
+                memcpy(&jkkRadio->eqPresets[i], &eq_embedded[i], sizeof(JkkRadioEqualizer_t));
+            }
+            jkkRadio->eq_count = JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS;
+        }
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+        JkkLcdReloadRoller(jkkRadio);
+#endif
+        return ESP_OK;
+    }
+
+    char lineStr[128];
+
+    while(fgets(lineStr, sizeof(lineStr), fptr)) {
+        if (lineStr[0] == '#' || lineStr[0] == '\n') continue; // Skip comments and empty lines
+        sdEqCount++;
+    }
+    ESP_LOGI(TAG, "Found %d equalizers in /sdcard/eq.txt", sdEqCount);
+    rewind(fptr); // Reset file pointer to the beginning
+    if(sdEqCount == 0) {
+        ESP_LOGW(TAG, "No equalizers found in /sdcard/eq.txt");
+        fclose(fptr);
+        jkkRadio->eqPresets = heap_caps_calloc(JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS, sizeof(JkkRadioEqualizer_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        for(int i = 0; i < JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS; i++){
+            memcpy(&jkkRadio->eqPresets[i], &eq_embedded[i], sizeof(JkkRadioEqualizer_t));
+        }
+        jkkRadio->eq_count = JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS;
+        return ESP_ERR_NOT_FOUND;
+    }
+    else if (sdEqCount > JKK_RADIO_MAX_EQ_PRESETS) {
+        ESP_LOGW(TAG, "Too many equalizers (%d) in /sdcard/eq.txt, limiting to JKK_RADIO_MAX_EQ_PRESETS", sdEqCount);
+        sdEqCount = JKK_RADIO_MAX_EQ_PRESETS; // Limit to JKK_RADIO_MAX_EQ_PRESETS equalizers
+    }
+    if( nvsEqCount < sdEqCount) {
+        
+        jkkRadio->eqPresets = heap_caps_realloc(jkkRadio->eqPresets, sdEqCount * sizeof(JkkRadioEqualizer_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (jkkRadio->eqPresets == NULL) {
+            ESP_LOGE(TAG, "Memory reallocation failed for jkkRadio->eqPresets");
+            fclose(fptr);
+            return ESP_ERR_NO_MEM;
+        }
+    }
+    
+    int index = 0;
+    while(fgets(lineStr, sizeof(lineStr), fptr)) {
+        if (lineStr[0] == '#' || lineStr[0] == '\n') continue; // Skip comments and empty lines
+        char *name = strtok(lineStr, ";,");
+        int gains[10];
+        bool different = false;
+        for(int i = 0; i < 10; i++){
+            char *gain = strtok(NULL, ";,\n");
+            gains[i] = atoi(gain);
+            if(different == false && jkkRadio->eqPresets[index].gain[i] != gains[i]){
+                different = true;
+            }
+        }
+        
+        if (name) {
+            char key[16] = {0};
+            sprintf(key, JKK_RADIO_NVS_EQUALIZER_KEY, index);
+            if(strcmp(name, jkkRadio->eqPresets[index].name) || different) {
+                // If the equalizer is different from the one in NVS, update it
+                strncpy(jkkRadio->eqPresets[index].name, name, sizeof(jkkRadio->eqPresets[index].name) - 1);
+
+                for(int i = 0; i < 10; i++){
+                    jkkRadio->eqPresets[index].gain[i] = gains[i];
+                }
+                
+                JkkNvsBlobSet(key, JKK_RADIO_NVS_EQ_NAMESPACE, &jkkRadio->eqPresets[index], sizeof(JkkRadioEqualizer_t)); // Save each updated eq to NVS
+                ESP_LOGI(TAG, "Updated equalizers %d from file: name=%s",
+                         index,
+                         jkkRadio->eqPresets[index].name);
+            }
+            index++;
+            if (index >= sdEqCount) {
+                ESP_LOGI(TAG, "Reached end of equalizers list(%d), stopping reading from file", sdEqCount);
+                break; // Stop reading if we reach the maximum count
+            }
+        }
+    }
+    if(index < nvsEqCount) {
+        // If there are more stations in NVS than in the file, remove the extra ones
+        for(int i = index; i < nvsEqCount; i++) {
+            char key[16] = {0};
+            sprintf(key, JKK_RADIO_NVS_EQUALIZER_KEY, i);
+            ESP_LOGI(TAG, "Removing station %d from NVS: %s", i, key);
+            JkkNvsErase(key, JKK_RADIO_NVS_EQ_NAMESPACE);
+        }
+    }
+    fclose(fptr);
+    ESP_LOGI(TAG, "Loaded %d stations from /sdcard/stations.txt", index);
+
+    ESP_LOGI(TAG, "Loaded stations:");
+    for (int i = 0; i < index; i++) {
+        ESP_LOGI(TAG, "Updated eq %d: name=%s",
+                 i,
+                 jkkRadio->eqPresets[i].name); 
+    }
+    jkkRadio->eq_count = index;
+
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+    JkkLcdReloadRoller(jkkRadio);
+#endif
     return ESP_OK;
 }

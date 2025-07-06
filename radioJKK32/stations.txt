@@ -5,4 +5,4 @@ http://mp3.polskieradio.pl:8904/;Trójka;Polskie Radio Program Trzeci;0;1
 http://mp3.polskieradio.pl:8902/;Jedynka;Polskie Radio Program Pierwszy;0;1
 http://redir.atmcdn.pl/sc/o2/Eurozet/live/audio.livx;Zet;Radio Zet
 http://stream.radioluz.pl:8000/luzlofi.ogg;Luz;Akademickie Radio Luz
-# https://dl.espressif.com/dl/audio/ff-16b-2c-44100hz.aac;HTTPS;HTTPS;0
+# https://dl.espressif.com/dl/audio/ff-16b-2c-44100hz.aac;HTTPS;HTTPS;0 

@@ -4,16 +4,16 @@
 - Odtwarzanie radiowych stacji internetowych z listy.  
 - Nagrywanie strumienia na kartę SD w formacie AAC.  
 - Sterowanie głośnością.  
-- Wybór jednego z czterech ustawień equalizera.  
+- Wybór ustawień equalizera graficznego.  
   
 Prace trwają!  
   
 ## **Wymagania sprzętowe:**  
-Płytka deweloperska **AI Thinker ESP32-A1S**  
+#### Płytka deweloperska **AI Thinker ESP32-A1S**  
 Dane techniczne:  
 - ESP32-D0WD rev. 3.1  
 - 4 MB Flash  
-- 8 MB PSRAM  
+- 8 MB PSRAM (4 MB dostępne dla systemu)
 - Audio CODEC es8388 z przedwzmacniaczem  
 - Wzmacniacze audio NS4150 2x 3W (4Ω)   
 - Złącze dla akumulatora   
@@ -23,10 +23,26 @@ Przykładowa oferta: [App: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.
 
 ![AI Thinker ESP32-A1S](img/ESP32A1S.jpeg)
   
-Karta mikroSD (do 64 GB)  
+#### Karta mikroSD (do 64 GB)  
+
+#### Zalecany wyświetlacz
+
+OLED SSD1306 128x64 z magistralą i2c. Dobrze, jeżeli ma wbudowane 4 przyciski lub zapewnimy takie przyciski osobno dla wygodnieszego użytkowania np. [OLED SSD1306 128x64 z czterema przyciskami](https://s.click.aliexpress.com/e/_oFKo8XC)
+
+Jeżeli projekt jest kompilowany w idf.py menuconfig można wybrać wyświetlacz SH1107 również w konfiguracji i2c.
+
+Podłączenie:
+- SDA: **GPIO18**
+- SCL: **GPIO5**
+
+Podłączenie przycisków zewnątrznych:
+- KEY4 [Up] GPIO23
+- KEY3 [Down] GPIO19
+- KEY2 [Eq/Rec] GPIO13/MTCK (uwaga: zmień ustawienai dip-switch)
+- KEY1 [Stations] GPIO22
   
 ## Użycie gotowego skompilowanego pliku:  
-Wgrać dowolnym narzędziem do flashowania ESP32 plik `RadioJKK_v0.bin` z folderu bin od adresu 0x0. np. komendą:   
+Wgrać dowolnym narzędziem do flashowania ESP32 plik `RadioJKK_v0.bin` lub `RadioJKK_LCD_v0.bin` dla wersji z OLED SSD1306 z folderu `bin` od adresu 0x0. np. komendą:   
 ```
 esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin  
 ```
@@ -48,40 +64,39 @@ http://stream2.nadaje.com:9228/ram.aac;RAM;Radio RAM;0;1
 http://stream2.nadaje.com:9238/rwkultura.aac;RWK;Radio Wrocław Kultura;1;1  
 http://mp3.polskieradio.pl:8904/;Trójka;Polskie Radio Program Trzeci;0;1  
 ```
+
+- Plik tekstowy (plain text) `eq.txt` z listą ustawień equalizerów graficznych (maksymalnie 10) w formacie csv (pola rozdzielone przecinkiem lub średnikiem).  
+`nazwa;0;0;0;0;0;0;0;0;0;0` (zawsze 10 ustawień) np.:  
+```
+flat;0;0;0;0;0;0;0;0;0;0
+music;0;4;3;1;0;-1;0;1;3;6
+rock;0;6;6;4;0;-1;-1;0;6;10
+```
   
 Pliku należy umieścić w katalogu głównym karty microSD.  
 
-Obecnie lista stacji jest zapamiętywana w pamięci flash NVS. Aby zmienić jedną lub więcej stacji, wgraj nową listę na kartę SD i umieść ją w czytniku. Po aktualizacji listy, która trwa do 3 sekund, możesz wyjąć kartę SD, jeżeli nie chcesz nagrywać strumieni.
+Lista stacji oraz equalizery są zapamiętywane w pamięci flash NVS. Aby zmienić jedną lub więcej stacji (eqyalizerów), wgraj nową listę na kartę SD i umieść ją w czytniku. Po aktualizacji listy, która trwa do 3 sekund, możesz wyjąć kartę SD, jeżeli nie chcesz nagrywać strumieni.
   
 Przykładowe pliki znajdują się w repozytorium.  
-
-## Pierwsze przymiarki do wyświetlacza i2c
-Obsługa wyświetlaczy i2c 128x64 SSD1306 lub SH1107 (wybór za pomocą idf.py menuconfig). Plik binarny `RadioJKK_LCD_v0.bin` jest przygotowany dla wyświetlacza SSD1306.
-
-Podłączenie:
-- SDA: 18
-- SCL: 5
-Uwaga: Klawisze 5 i 6 przestają działać. Ich funkcje są przeniesione.
   
 ## Kompilacja z plików źródłowych:  
-Oprogramowanie jest sprawdzane z ESP-IDF 5.4 lub 5.4.1 oraz ESP-ADF (najnowszą wersją).  
+Oprogramowanie jest sprawdzane z ESP-IDF 5.4.1 lub 5.4.2 oraz ESP-ADF (najnowszą wersją).  
   
 Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html#quick-start). Repozytorium [ESP-ADF on GitHub](https://github.com/espressif/esp-adf).  
   
 ## Używanie:  
-- **Klawisz** 6 [krótko] głośniej.  
+- **Klawisz 6** [krótko] głośniej.  
 - **Klawisz 5** [krótko] ciszej, [długo] mute.  
 - **Klawisz 4** [krótko] następna stacja z listy, [długo] powrót do pozycji 1. Dioda miga zgodnie z numerem na liście.  
 - **Klawisz 3** [krótko] poprzednia stacja z listy, [długo] ulubiona (pierwsza ulubiona z listy). Dioda miga zgodnie z numerem na liście.  
 - **Klawisz 2** [krótko] rozpoczęcie nagrywania (dioda co 3 sekundy miga dwukrotnie), [długo] zakończenie nagrywania (dioda mika 3 razy).  
 - **Klawisz 1** [krótko] przejście do kolejnego ustawienia equalizera, [długo] powrót do ustawień bez korekcji.  
 
-### Tymczasowe sterowanie z wyświetlaczem:
-- **Klawisz 4** [krótko] głośniej, [długo] następna stacja z listy.  
-- **Klawisz 3** [krótko] cieszej, [długo] poprzednia stacja z listy.  
-- **Klawisz 1** [krótko] przejście do kolejnego ustawienia equalizera, [długo] włączenie lub wyłączenie nagrywania.  
-  
-Włożenie karty SD powoduje ponowne załadowanie listy stacji. W przypadku braku listy stacji używana jest domyślna.  
-  
+### Sterowanie w wersji z wyświetlaczem:
+- **Klawisz 4** [krótko] głośniej. Gdy wyświetlana jest lista stacji lub equalizerów - przewijanie listy.
+- **Klawisz 3** [krótko] cieszej. Gdy wyświetlana jest lista stacji lub equalizerów - przewijanie listy. [długo] wyciszenie.  
+- **Klawisz 2** [krótko] wywołanie menu equalizerów, ponownie wciśnięcie zatwierdzenie wyboru. [długo] rozpoczęcie nagrywania, ponowne wciśnięcie: zakończenie nagrywania.  
+- **Klawisz 1** [krótko] wywołanie menu stacji radiowych, ponownie wciśnięcie zatwierdzenie wyboru. [długo] wyjście z listy bez zmiany stacji.  
+    
 Pliki audio zapisywane są w folderze `rec/data_nagrania` z dodatkowym wspólnym plikiem tekstowym zawierającym ścieżkę pliku audio, nazwę stacji i czas startu zapisu.  
 

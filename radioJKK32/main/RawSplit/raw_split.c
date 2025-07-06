@@ -16,17 +16,17 @@ static const char *TAG = "SPLITTER";
 #define BUF_SIZE (3 * 1024)
 
 static esp_err_t raw_split_destroy(audio_element_handle_t self){
-    ESP_LOGD(TAG, "raw_split_destroy");
+    ESP_LOGI(TAG, "raw_split_destroy");
     return ESP_OK;
 }
 
 static esp_err_t raw_split_open(audio_element_handle_t self){
-    ESP_LOGD(TAG, "raw_split_open");
+    ESP_LOGI(TAG, "raw_split_open");
     return ESP_OK;
 }
 
 static esp_err_t raw_split_close(audio_element_handle_t self){
-    ESP_LOGD(TAG, "raw_split_close");
+    ESP_LOGI(TAG, "raw_split_close");
     return ESP_OK;
 }
 
@@ -34,6 +34,7 @@ static int raw_split_process(audio_element_handle_t self, char *in_buffer, int i
     int ret = 0;
     
     int r_size = audio_element_input(self, in_buffer, in_len);
+
 
     if (r_size > 0) {
         audio_element_multi_output(self, in_buffer, r_size, 0);
