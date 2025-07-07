@@ -1,3 +1,10 @@
+/*
+ * ESP-ADF Audio Element
+ * Dynamic volume calculator (for display)
+ * @author      Jaromir Kopp 
+ * @date        2025
+*/
+
 #ifndef _VOLUME_METER_H_
 #define _VOLUME_METER_H_
 
@@ -8,53 +15,53 @@ extern "C" {
 #endif
 
 /**
- * @brief Struktura konfiguracji elementu volume meter
+ * @brief Configuration structure of volume meter element
  */
 typedef struct {
-    int sample_rate;           ///< Częstotliwość próbkowania (np. 44100)
-    int channels;              ///< Liczba kanałów (2 dla stereo)
-    int bits_per_sample;       ///< Bity na próbkę (16)
-    int frame_size;            ///< Rozmiar bufora w bajtach
-    int update_rate_hz;        ///< Częstotliwość aktualizacji (10-30 Hz)
-    void (*volume_callback)(int left_volume, int right_volume); ///< Callback z wynikami (0-100)
+    int sample_rate;           ///< Sample rate (e.g. 44100)
+    int channels;              ///< No. of channels (2 for stereo). Currently, only stereo mode is supported
+    int bits_per_sample;       ///< Bits per sample (16). Currently, only 16 bits is supported
+    int frame_size;            ///< Buffer size in bytes
+    int update_rate_hz;        ///< Update frequency (10-30 Hz)
+    void (*volume_callback)(int left_volume, int right_volume); ///< Callback function with results (values 0-100)
 } volume_meter_cfg_t;
 
 #define V_METER_CFG_DEFAULT() {\
-    .sample_rate = 44100, \
-    .channels = 2,                                        \
-    .bits_per_sample = 16,                                          \
-    .frame_size = 2048,                                          \
-    .update_rate_hz = 15,                                                      \
+    .sample_rate = 44100,    \
+    .channels = 2,           \
+    .bits_per_sample = 16,   \
+    .frame_size = 1024,      \
+    .update_rate_hz = 15,    \
     .volume_callback = NULL, \
 }
 
 /**
- * @brief Inicjalizuje element volume meter
- * 
- * @param config Konfiguracja elementu
- * @return audio_element_handle_t Handle do elementu lub NULL w przypadku błędu
+ * @brief Initializes the volume meter element.
+ *
+ * @param config Element configuration.
+ * @return audio_element_handle_t Handle to element or NULL in case of error.
  */
 audio_element_handle_t volume_meter_init(volume_meter_cfg_t *config);
 
 /**
- * @brief Tworzy element volume meter z domyślną konfiguracją
- * 
- * @param sample_rate Częstotliwość próbkowania
- * @param update_rate Częstotliwość aktualizacji w Hz
- * @param callback Funkcja callback dla wyników
- * @return audio_element_handle_t Handle do elementu lub NULL w przypadku błędu
+ * @brief Creates volume meter element with default configuration.
+ *
+ * @param sample_rate Sampling frequency.
+ * @param update_rate Update frequency in Hz.
+ * @param callback Callback function for the results.
+ * * @return audio_element_handle_t Handle to element or NULL in case of error.
  */
 audio_element_handle_t create_volume_meter(int sample_rate, int update_rate, 
                                          void (*callback)(int left, int right));
 
 /**
- * @brief Aktualizuje parametry audio elementu volume meter
- * 
- * @param self Handle do elementu volume meter
- * @param sample_rate Nowa częstotliwość próbkowania
- * @param channels Nowa liczba kanałów (1=mono, 2=stereo)
- * @param bits_per_sample Nowa liczba bitów na próbkę (8, 16, 24, 32)
- * @return true jeśli aktualizacja się powiodła, false w przypadku błędu
+ * @brief Updates the audio parameters of the volume meter element.
+ *
+ * @param self Handle to volume meter element.
+ * @param sample_rate New sample rate.
+ * @param channels New number of channels (1=mono, 2=stereo). Currently, only stereo mode is supported
+ * @param bits_per_sample New number of bits per sample (8, 16, 24, 32). Currently, only 16 bits is supported
+ * @return true if update succeeded, false if error.
  */
 esp_err_t volume_meter_update_format(audio_element_handle_t self, 
                                int sample_rate, 
@@ -62,16 +69,37 @@ esp_err_t volume_meter_update_format(audio_element_handle_t self,
                                int bits_per_sample);
 
 /**
- * @brief Zmienia częstotliwość aktualizacji callback'a
- * 
- * @param self Handle do elementu volume meter
- * @param update_rate_hz Nowa częstotliwość aktualizacji w Hz (1-100)
- * @return true jeśli aktualizacja się powiodła, false w przypadku błędu
+ * @brief Changes the frequency of callback updates.
+ *
+ * @param self Handle to volume meter element.
+ * @param update_rate_hz New update frequency in Hz (1-100).
+ * @return true if update succeeded, false if error.
  */
 esp_err_t volume_meter_set_update_rate(audio_element_handle_t self, int update_rate_hz);
 
 #ifdef __cplusplus
 }
 #endif
+
+/**
+ * Examole of use:
+ * 
+ *  volume_meter_cfg_t vmcfg = V_METER_CFG_DEFAULT();
+ *  vmcfg.update_rate_hz = 14;
+ *  vmcfg.frame_size = 768;
+ *  vmcfg.volume_callback = JkkLcdVolumeIndicatorCallback;
+ *  audioMain.vmeter = volume_meter_init(&vmcfg);
+ *  audio_pipeline_register(audioMain.pipeline, audioMain.vmeter, "VM");
+ * 
+ * void JkkLcdVolumeIndicatorCallback(int left_volume, int right_volume) {
+ *      line_points[1].x = 66 + (right_volume * 60 / 100);
+ *      line_points[0].x = 60 - ((left_volume * 60) / 100);
+ *      if(JkkLcdPortLock(0)){
+ *          lv_obj_invalidate(line);
+ *          JkkLcdPortUnlock();
+ *      }
+ *  }
+ * 
+ */
 
 #endif /* _VOLUME_METER_H_ */

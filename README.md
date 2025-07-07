@@ -51,7 +51,7 @@ esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin
 - Format: FAT32 (MS-DOS).
 - Text file (plain text) `settings.txt` with WiFi network name and password separated by semicolon (one line of text):
 ```
-myssid;mypassword
+mySSID;myPassword
 ```
 
 After restart, WiFi settings are saved in NVS flash memory and the presence of SD card in the reader is no longer necessary.

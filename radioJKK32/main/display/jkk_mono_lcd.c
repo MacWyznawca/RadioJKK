@@ -170,8 +170,8 @@ void JkkLcdButtonSet(int keyCode, int8_t pressed) {
 }
 
 void JkkLcdVolumeIndicatorCallback(int left_volume, int right_volume) {
-    line_points[1].x = 66 + (right_volume * 60 / 100);
-    line_points[0].x = 60 - ((left_volume * 60) / 100);
+    line_points[1].x = 64 + (right_volume * 63 / 100);
+    line_points[0].x = 63 - ((left_volume * 63) / 100);
     if(JkkLcdPortLock(0)){
         lv_obj_invalidate(line);
         JkkLcdPortUnlock();

@@ -1,63 +1,71 @@
-# JkkRadio internetowe radio dla **AI Thinker ESP32-A1S**  
+# JkkRadio Internet Radio for **AI Thinker ESP32-A1S**  
   
-## **Możliwości:**  
-- Odtwarzanie radiowych stacji internetowych z listy.  
-- Nagrywanie strumienia na kartę SD w formacie AAC.  
-- Sterowanie głośnością.  
-- Wybór ustawień equalizera graficznego.  
+## **Features:**  
+- Playing internet radio stations from a list.  
+- Recording stream to SD card in AAC format.  
+- Volume control.  
+- Graphic equalizer settings selection.  
   
-Prace trwają!  
+Work in progress!  
   
-## **Wymagania sprzętowe:**  
-#### Płytka deweloperska **AI Thinker ESP32-A1S**  
-Dane techniczne:  
+## **Hardware Requirements:**  
+#### Development board **AI Thinker ESP32-A1S**  
+Technical specifications:  
 - ESP32-D0WD rev. 3.1  
 - 4 MB Flash  
-- 8 MB PSRAM (4 MB dostępne dla systemu)
-- Audio CODEC es8388 z przedwzmacniaczem  
-- Wzmacniacze audio NS4150 2x 3W (4Ω)   
-- Złącze dla akumulatora   
-- Złącze USB UART  
-- Gniazdo dla kart microSD  
-Przykładowa oferta: [App: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_ooTic0A), [Web: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_onbBPzW) (afiliacja)
+- 8 MB PSRAM (4 MB available for system)
+- Audio CODEC es8388 with preamplifier  
+- Audio amplifiers NS4150 2x 3W (4Ω)   
+- Battery connector   
+- USB UART connector  
+- microSD card slot  
+Sample offer: [App: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_ooTic0A), [Web: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_onbBPzW) (affiliate)
 
 ![AI Thinker ESP32-A1S](img/ESP32A1S.jpeg)
   
-#### Karta mikroSD (do 64 GB)  
+#### MicroSD card (up to 64 GB)  
 
-#### Zalecany wyświetlacz
+#### Recommended display
 
-OLED SSD1306 128x64 z magistralą i2c. Dobrze, jeżeli ma wbudowane 4 przyciski lub zapewnimy takie przyciski osobno dla wygodnieszego użytkowania np. [OLED SSD1306 128x64 z czterema przyciskami](https://s.click.aliexpress.com/e/_oFKo8XC)
+OLED SSD1306 128x64 with i2c bus. Good if it has built-in 4 buttons or provide such buttons separately for more convenient use e.g. [OLED SSD1306 128x64 with four buttons](https://s.click.aliexpress.com/e/_oFKo8XC)
 
-Jeżeli projekt jest kompilowany w idf.py menuconfig można wybrać wyświetlacz SH1107 również w konfiguracji i2c.
+[![Sample display](img/OLED-i2c.jpeg)](https://s.click.aliexpress.com/e/_oFKo8XC)
 
-Podłączenie:
+If the project is compiled in idf.py menuconfig, you can also select SH1107 display in i2c configuration.
+
+Connection:
 - SDA: **GPIO18**
 - SCL: **GPIO5**
 
-Podłączenie przycisków zewnątrznych:
+External button connections:
 - KEY4 [Up] GPIO23
 - KEY3 [Down] GPIO19
-- KEY2 [Eq/Rec] GPIO13/MTCK (uwaga: zmień ustawienai dip-switch)
+- KEY2 [Eq/Rec] GPIO13/MTCK (note: change dip-switch settings)
 - KEY1 [Stations] GPIO22
+
+![i2c display and external keyboard connection](img/ESP32A1S-OLED-connections.jpeg)
   
-## Użycie gotowego skompilowanego pliku:  
-Wgrać dowolnym narzędziem do flashowania ESP32 plik `RadioJKK_v0.bin` lub `RadioJKK_LCD_v0.bin` dla wersji z OLED SSD1306 z folderu `bin` od adresu 0x0. np. komendą:   
+## Using pre-compiled file:  
+Flash any ESP32 flashing tool with selected file from `bin` folder from address 0x0. e.g. with command:   
 ```
 esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin  
 ```
+- `RadioJKK_v0.bin` - version without display, AI Thinker ESP32-A1S development board only
+- `RadioJKK_LCD_board_keys_v0.bin` - version for SSD1306 128x64 i2c display
+- `RadioJKK_LCD_ext_keys_v0.bin` - version for SSD1306 128x64 i2c display with possibility to connect external buttons
+
   
-### Przygotowanie karty microSD:  
+### Preparing microSD card:  
 - Format FAT32 (MS-DOS).  
-- Plik tekstowy (plain text) `settings.txt` z nazwą sieci WiFi i hasłem oddzielonym średnikiem (jedna linia tekstu):  
+- Text file (plain text) `settings.txt` with WiFi network name and password separated by semicolon (one line of text):  
 ```
-myssid;mypassword  
+mySSID;myPassword
 ```
 
-Po restarcie ustawienia WiFi są zapisywane w pamięci flash NVS i obecność karty SD w czytniku nie jest już konieczna.
+After restart, WiFi settings are saved in NVS flash memory and the presence of SD card in the reader is no longer necessary.
   
-- Plik tekstowy (plain text) `stations.txt` z listą stacji radiowych (maksymalnie 20) w formacie csv (pola rozdzielone średnikiem).  
-`url stacji;nazwa krótka;opis;1 lub 0 (ulubione);rodzaj` np.:  
+- Text file (plain text) `stations.txt` with list of radio stations (maximum 20) in csv format (fields separated by semicolon).  
+`station url;short name;description;1 or 0 (favorites);type` e.g.:  
 ```
 http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław - Public Radio;0;5  
 http://stream2.nadaje.com:9228/ram.aac;RAM;Radio RAM;0;1  
@@ -65,38 +73,37 @@ http://stream2.nadaje.com:9238/rwkultura.aac;RWK;Radio Wrocław Kultura;1;1
 http://mp3.polskieradio.pl:8904/;Trójka;Polskie Radio Program Trzeci;0;1  
 ```
 
-- Plik tekstowy (plain text) `eq.txt` z listą ustawień equalizerów graficznych (maksymalnie 10) w formacie csv (pola rozdzielone przecinkiem lub średnikiem).  
-`nazwa;0;0;0;0;0;0;0;0;0;0` (zawsze 10 ustawień) np.:  
+- Text file (plain text) `eq.txt` with list of graphic equalizer settings (maximum 10) in csv format (fields separated by comma or semicolon).  
+`name;0;0;0;0;0;0;0;0;0;0` (always 10 correction settings in dB) e.g.:  
 ```
 flat;0;0;0;0;0;0;0;0;0;0
 music;0;4;3;1;0;-1;0;1;3;6
 rock;0;6;6;4;0;-1;-1;0;6;10
 ```
   
-Pliku należy umieścić w katalogu głównym karty microSD.  
+Files should be placed in the root directory of the microSD card.  
 
-Lista stacji oraz equalizery są zapamiętywane w pamięci flash NVS. Aby zmienić jedną lub więcej stacji (eqyalizerów), wgraj nową listę na kartę SD i umieść ją w czytniku. Po aktualizacji listy, która trwa do 3 sekund, możesz wyjąć kartę SD, jeżeli nie chcesz nagrywać strumieni.
+Station list and equalizers are stored in NVS flash memory. To change one or more stations (equalizers), upload a new list to SD card and place it in the reader. After updating the list, which takes up to 3 seconds, you can remove the SD card if you don't want to record streams. New WiFi network settings will be used after restart.
   
-Przykładowe pliki znajdują się w repozytorium.  
+Sample files are in the repository.  
   
-## Kompilacja z plików źródłowych:  
-Oprogramowanie jest sprawdzane z ESP-IDF 5.4.1 lub 5.4.2 oraz ESP-ADF (najnowszą wersją).  
+## Compilation from source files:  
+Software is tested with ESP-IDF 5.4.1 or 5.4.2 and ESP-ADF v2.7 or newer.  
   
-Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html#quick-start). Repozytorium [ESP-ADF on GitHub](https://github.com/espressif/esp-adf).  
+Installation description [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html#quick-start). Repository [ESP-ADF on GitHub](https://github.com/espressif/esp-adf).  
   
-## Używanie:  
-- **Klawisz 6** [krótko] głośniej.  
-- **Klawisz 5** [krótko] ciszej, [długo] mute.  
-- **Klawisz 4** [krótko] następna stacja z listy, [długo] powrót do pozycji 1. Dioda miga zgodnie z numerem na liście.  
-- **Klawisz 3** [krótko] poprzednia stacja z listy, [długo] ulubiona (pierwsza ulubiona z listy). Dioda miga zgodnie z numerem na liście.  
-- **Klawisz 2** [krótko] rozpoczęcie nagrywania (dioda co 3 sekundy miga dwukrotnie), [długo] zakończenie nagrywania (dioda mika 3 razy).  
-- **Klawisz 1** [krótko] przejście do kolejnego ustawienia equalizera, [długo] powrót do ustawień bez korekcji.  
+## Usage:  
+- **Key 6** [short] louder.  
+- **Key 5** [short] quieter, [long] mute.  
+- **Key 4** [short] next station from list, [long] return to position 1. LED blinks according to number on the list.  
+- **Key 3** [short] previous station from list, [long] favorite (first favorite from list). LED blinks according to number on the list.  
+- **Key 2** [short] start recording (LED blinks twice every 3 seconds), [long] stop recording (LED blinks 3 times).  
+- **Key 1** [short] go to next equalizer setting, [long] return to settings without correction.  
 
-### Sterowanie w wersji z wyświetlaczem:
-- **Klawisz 4** [krótko] głośniej. Gdy wyświetlana jest lista stacji lub equalizerów - przewijanie listy.
-- **Klawisz 3** [krótko] cieszej. Gdy wyświetlana jest lista stacji lub equalizerów - przewijanie listy. [długo] wyciszenie.  
-- **Klawisz 2** [krótko] wywołanie menu equalizerów, ponownie wciśnięcie zatwierdzenie wyboru. [długo] rozpoczęcie nagrywania, ponowne wciśnięcie: zakończenie nagrywania.  
-- **Klawisz 1** [krótko] wywołanie menu stacji radiowych, ponownie wciśnięcie zatwierdzenie wyboru. [długo] wyjście z listy bez zmiany stacji.  
+### Control in version with display:
+- **Key 4** [short] louder. When station or equalizer list is displayed - scroll through list.
+- **Key 3** [short] quieter. When station or equalizer list is displayed - scroll through list. [long] mute.  
+- **Key 2** [short] call equalizer menu, press again to confirm selection. [long] start recording, press again: stop recording.  
+- **Key 1** [short] call radio station menu, press again to confirm selection. [long] exit list without changing station.  
     
-Pliki audio zapisywane są w folderze `rec/data_nagrania` z dodatkowym wspólnym plikiem tekstowym zawierającym ścieżkę pliku audio, nazwę stacji i czas startu zapisu.  
-
+Audio files are saved in `rec/recording_date` folder with additional common text file containing audio file path, station name and recording start time.
