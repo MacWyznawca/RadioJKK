@@ -1,109 +1,109 @@
-# JkkRadio Internet Radio for **AI Thinker ESP32-A1S**  
+# JkkRadio Internet Radio dla **AI Thinker ESP32-A1S**  
   
-## **Features:**  
-- Playing internet radio stations from a list.  
-- Recording stream to SD card in AAC format.  
-- Volume control.  
-- Graphic equalizer settings selection.  
+## **Funkcje:**  
+- Odtwarzanie stacji radiowych internetowych z listy.  
+- Nagrywanie strumienia na kartę SD w formacie AAC.  
+- Kontrola głośności.  
+- Wybór ustawień korektora graficznego.  
   
-Work in progress!  
+Praca w toku!  
   
-## **Hardware Requirements:**  
-#### Development board **AI Thinker ESP32-A1S**  
-Technical specifications:  
+## **Wymagania sprzętowe:**  
+#### Płytka deweloperska **AI Thinker ESP32-A1S**  
+Specyfikacja techniczna:  
 - ESP32-D0WD rev. 3.1  
 - 4 MB Flash  
-- 8 MB PSRAM (4 MB available for system)
-- Audio CODEC es8388 with preamplifier  
-- Audio amplifiers NS4150 2x 3W (4Ω)   
-- Battery connector   
-- USB UART connector  
-- microSD card slot  
-Sample offer: [App: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_ooTic0A), [Web: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_onbBPzW) (affiliate)
+- 8 MB PSRAM (4 MB dostępne dla systemu)
+- Koder audio es8388 z przedwzmacniaczem  
+- Wzmacniacze audio NS4150 2x 3W (4Ω)   
+- Złącze baterii   
+- Złącze USB UART  
+- Gniazdo karty microSD  
+Przykładowa oferta: [App: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_ooTic0A), [Web: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_onbBPzW) (affiliate)
 
 ![AI Thinker ESP32-A1S](img/ESP32A1S.jpeg)
   
-#### MicroSD card (up to 64 GB)  
+#### Karta MicroSD (do 64 GB)  
 
-#### Recommended display
+#### Zalecany wyświetlacz
 
-OLED SSD1306 128x64 with i2c bus. Good if it has built-in 4 buttons or provide such buttons separately for more convenient use e.g. [OLED SSD1306 128x64 with four buttons](https://s.click.aliexpress.com/e/_oFKo8XC)
+OLED SSD1306 128x64 z magistralą i2c. Dobrze, jeśli ma wbudowane 4 przyciski lub zapewnij takie przyciski osobno dla wygodniejszego użytkowania np. [OLED SSD1306 128x64 z czterema przyciskami](https://s.click.aliexpress.com/e/_oFKo8XC)
 
-[![Sample display](img/OLED-i2c.jpeg)](https://s.click.aliexpress.com/e/_oFKo8XC)
+[![Przykładowy wyświetlacz](img/OLED-i2c.jpeg)](https://s.click.aliexpress.com/e/_oFKo8XC)
 
-If the project is compiled in idf.py menuconfig, you can also select SH1107 display in i2c configuration.
+Jeśli projekt jest kompilowany w idf.py menuconfig, możesz również wybrać wyświetlacz SH1107 w konfiguracji i2c.
 
-Connection:
+Połączenie:
 - SDA: **GPIO18**
 - SCL: **GPIO5**
 
-External button connections:
-- KEY4 [Up] GPIO23
-- KEY3 [Down] GPIO19
-- KEY2 [Eq/Rec] GPIO13/MTCK (note: change dip-switch settings)
-- KEY1 [Stations] GPIO22
+Połączenia przycisków zewnętrznych:
+- KEY4 [Góra] GPIO23
+- KEY3 [Dół] GPIO19
+- KEY2 [Eq/Rec] GPIO13/MTCK (uwaga: zmień ustawienia przełączników dip)
+- KEY1 [Stacje] GPIO22
 
-![i2c display and external keyboard connection](img/ESP32A1S-OLED-connections.jpeg)
+![połączenie wyświetlacza i2c i klawiatury zewnętrznej](img/ESP32A1S-OLED-connections.jpeg)
   
-## Using pre-compiled file:  
-Flash any ESP32 flashing tool with selected file from `bin` folder from address 0x0. e.g. with command:   
+## Użycie prekompilowanego pliku:  
+Wgraj dowolnym narzędziem do flashowania ESP32 z wybranym plikiem z folderu `bin` z adresu 0x0. np. komendą:   
 ```
 esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin  
 ```
-- `RadioJKK_v0.bin` - version without display, AI Thinker ESP32-A1S development board only
-- `RadioJKK_LCD_board_keys_v0.bin` - version for SSD1306 128x64 i2c display
-- `RadioJKK_LCD_ext_keys_v0.bin` - version for SSD1306 128x64 i2c display with possibility to connect external buttons
+- `RadioJKK_v0.bin` - wersja bez wyświetlacza, tylko płytka deweloperska AI Thinker ESP32-A1S
+- `RadioJKK_LCD_board_keys_v0.bin` - wersja dla wyświetlacza SSD1306 128x64 i2c
+- `RadioJKK_LCD_ext_keys_v0.bin` - wersja dla wyświetlacza SSD1306 128x64 i2c z możliwością podłączenia przycisków zewnętrznych
 
   
-### Preparing microSD card:  
+### Przygotowanie karty microSD:  
 - Format FAT32 (MS-DOS).  
-- Text file (plain text) `settings.txt` with WiFi network name and password separated by semicolon (one line of text):  
+- Plik tekstowy (zwykły tekst) `settings.txt` z nazwą sieci WiFi i hasłem oddzielonymi średnikiem (jedna linia tekstu):  
 ```
 mySSID;myPassword
 ```
 
-After restart, WiFi settings are saved in NVS flash memory and the presence of SD card in the reader is no longer necessary.
+Po restarcie ustawienia WiFi są zapisane w pamięci flash NVS i obecność karty SD w czytniku nie jest już konieczna.
   
-- Text file (plain text) `stations.txt` with list of radio stations (maximum 20) in csv format (fields separated by semicolon).  
-`station url;short name;description;1 or 0 (favorites);type` e.g.:  
+- Plik tekstowy (zwykły tekst) `stations.txt` z listą stacji radiowych (maksymalnie 20) w formacie csv (pola oddzielone średnikiem).  
+`url stacji;krótka nazwa;opis;1 lub 0 (ulubione);typ` np.:  
 ```
-http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław - Public Radio;0;5  
+http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław - Radio Publiczne;0;5  
 http://stream2.nadaje.com:9228/ram.aac;RAM;Radio RAM;0;1  
 http://stream2.nadaje.com:9238/rwkultura.aac;RWK;Radio Wrocław Kultura;1;1  
 http://mp3.polskieradio.pl:8904/;Trójka;Polskie Radio Program Trzeci;0;1  
 ```
 
-- Text file (plain text) `eq.txt` with list of graphic equalizer settings (maximum 10) in csv format (fields separated by comma or semicolon).  
-`name;0;0;0;0;0;0;0;0;0;0` (always 10 correction settings in dB) e.g.:  
+- Plik tekstowy (zwykły tekst) `eq.txt` z listą ustawień korektora graficznego (maksymalnie 10) w formacie csv (pola oddzielone przecinkiem lub średnikiem).  
+`nazwa;0;0;0;0;0;0;0;0;0;0` (zawsze 10 ustawień korekcji w dB) np.:  
 ```
 flat;0;0;0;0;0;0;0;0;0;0
 music;0;4;3;1;0;-1;0;1;3;6
 rock;0;6;6;4;0;-1;-1;0;6;10
 ```
+  
+Pliki powinny być umieszczone w katalogu głównym karty microSD.  
 
-Files should be placed in the root directory of the microSD card.  
+Lista stacji i korektory są przechowywane w pamięci flash NVS. Aby zmienić jedną lub więcej stacji (korektorów), wgraj nową listę na kartę SD i umieść ją w czytniku. Po aktualizacji listy, która zajmuje do 3 sekund, możesz usunąć kartę SD, jeśli nie chcesz nagrywać strumieni. Nowe ustawienia sieci WiFi będą użyte po restarcie.
+  
+Przykładowe pliki są w repozytorium.  
+  
+## Kompilacja z plików źródłowych:  
+Oprogramowanie jest testowane z ESP-IDF 5.4.1 lub 5.4.2 i ESP-ADF v2.7 lub nowszym.  
+  
+Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html#quick-start). Repozytorium [ESP-ADF na GitHub](https://github.com/espressif/esp-adf).  
+  
+## Użytkowanie:  
+- **Klawisz 6** [krótko] głośniej.  
+- **Klawisz 5** [krótko] ciszej, [długo] wyciszenie.  
+- **Klawisz 4** [krótko] następna stacja z listy, [długo] powrót do pozycji 1. LED miga zgodnie z numerem na liście.  
+- **Klawisz 3** [krótko] poprzednia stacja z listy, [długo] ulubiona (pierwsza ulubiona z listy). LED miga zgodnie z numerem na liście.  
+- **Klawisz 2** [krótko] rozpocznij nagrywanie (LED miga dwa razy co 3 sekundy), [długo] zatrzymaj nagrywanie (LED miga 3 razy).  
+- **Klawisz 1** [krótko] przejdź do następnego ustawienia korektora, [długo] powrót do ustawień bez korekcji.  
 
-Station list and equalizers are stored in NVS flash memory. To change one or more stations (equalizers), upload a new list to SD card and place it in the reader. After updating the list, which takes up to 3 seconds, you can remove the SD card if you don't want to record streams. New WiFi network settings will be used after restart.
-  
-Sample files are in the repository.  
-  
-## Compilation from source files:  
-Software is tested with ESP-IDF 5.4.1 or 5.4.2 and ESP-ADF v2.7 or newer.  
-  
-Installation description [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html#quick-start). Repository [ESP-ADF on GitHub](https://github.com/espressif/esp-adf).  
-  
-## Usage:  
-- **Key 6** [short] louder.  
-- **Key 5** [short] quieter, [long] mute.  
-- **Key 4** [short] next station from list, [long] return to position 1. LED blinks according to number on the list.  
-- **Key 3** [short] previous station from list, [long] favorite (first favorite from list). LED blinks according to number on the list.  
-- **Key 2** [short] start recording (LED blinks twice every 3 seconds), [long] stop recording (LED blinks 3 times).  
-- **Key 1** [short] go to next equalizer setting, [long] return to settings without correction.  
-
-### Control in version with display:
-- **Key 4** [short] louder. When station or equalizer list is displayed - scroll through list.
-- **Key 3** [short] quieter. When station or equalizer list is displayed - scroll through list. [long] mute.  
-- **Key 2** [short] call equalizer menu, press again to confirm selection. [long] start recording, press again: stop recording.  
-- **Key 1** [short] call radio station menu, press again to confirm selection. [long] exit list without changing station.  
+### Sterowanie w wersji z wyświetlaczem:
+- **Klawisz 4** [krótko] głośniej. Gdy wyświetlana jest lista stacji lub korektora - przewijanie przez listę.
+- **Klawisz 3** [krótko] ciszej. Gdy wyświetlana jest lista stacji lub korektora - przewijanie przez listę. [długo] wyciszenie.  
+- **Klawisz 2** [krótko] wywołaj menu korektora, naciśnij ponownie aby potwierdzić wybór. [długo] rozpocznij nagrywanie, naciśnij ponownie: zatrzymaj nagrywanie.  
+- **Klawisz 1** [krótko] wywołaj menu stacji radiowych, naciśnij ponownie aby potwierdzić wybór. [długo] wyjdź z listy bez zmiany stacji.  
     
-Audio files are saved in `rec/recording_date` folder with additional common text file containing audio file path, station name and recording start time.
+Pliki audio są zapisywane w folderze `rec/recording_date` z dodatkowym wspólnym plikiem tekstowym zawierającym ścieżkę pliku audio, nazwę stacji i czas rozpoczęcia nagrywania.
