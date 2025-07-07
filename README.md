@@ -38,7 +38,7 @@ Connection:
 External button connections:
 - KEY4 [Up] GPIO23
 - KEY3 [Down] GPIO19
-- KEY2 [Eq/Rec] GPIO13/MTCK (note: change dip-switch settings)
+- KEY2 [Eq/Rec] GPIO13/MTCK (note: change dip-switch settings see picture)
 - KEY1 [Stations] GPIO22
 
 ## Using Pre-compiled Binary:

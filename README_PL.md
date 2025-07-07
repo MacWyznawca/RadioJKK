@@ -80,7 +80,7 @@ flat;0;0;0;0;0;0;0;0;0;0
 music;0;4;3;1;0;-1;0;1;3;6
 rock;0;6;6;4;0;-1;-1;0;6;10
 ```
-  
+
 Files should be placed in the root directory of the microSD card.  
 
 Station list and equalizers are stored in NVS flash memory. To change one or more stations (equalizers), upload a new list to SD card and place it in the reader. After updating the list, which takes up to 3 seconds, you can remove the SD card if you don't want to record streams. New WiFi network settings will be used after restart.
