@@ -91,6 +91,15 @@ Przykładowe pliki są w repozytorium.
 Oprogramowanie jest testowane z ESP-IDF 5.4.1 lub 5.4.2 i ESP-ADF v2.7 lub nowszym.  
   
 Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html#quick-start). Repozytorium [ESP-ADF na GitHub](https://github.com/espressif/esp-adf).  
+
+### Instalacja z GitHub
+```bash
+git clone --recurse-submodules https://github.com/MacWyznawca/RadioJKK.git
+```
+lub
+```bash
+git submodule update --init --recursive
+```
   
 ## Użytkowanie:  
 - **Klawisz 6** [krótko] głośniej.  
