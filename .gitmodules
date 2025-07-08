@@ -1,3 +1,6 @@
 [submodule "radioJKK32/main/vmeter"]
 	path = radioJKK32/main/vmeter
 	url = https://github.com/MacWyznawca/vmeter-lib.git
+[submodule "radioJKK32/main/RawSplit"]
+	path = radioJKK32/main/RawSplit
+	url = https://github.com/MacWyznawca/RawSplit.git
