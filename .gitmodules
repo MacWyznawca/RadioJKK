@@ -1,0 +1,3 @@
+[submodule "radioJKK32/main/vmeter"]
+	path = radioJKK32/main/vmeter
+	url = https://github.com/MacWyznawca/vmeter-lib.git
