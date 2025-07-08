@@ -19,7 +19,7 @@ extern "C" {
  */
 typedef struct {
     int sample_rate;           ///< Sample rate (e.g. 44100)
-    int channels;              ///< No. of channels (2 for stereo). Currently, only stereo mode is supported
+    int channels;              ///< No. of channels (2 for stereo).
     int bits_per_sample;       ///< Bits per sample (16). Currently, only 16 bits is supported
     int frame_size;            ///< Buffer size in bytes
     int update_rate_hz;        ///< Update frequency (10-30 Hz)
@@ -59,7 +59,7 @@ audio_element_handle_t create_volume_meter(int sample_rate, int update_rate,
  *
  * @param self Handle to volume meter element.
  * @param sample_rate New sample rate.
- * @param channels New number of channels (1=mono, 2=stereo). Currently, only stereo mode is supported
+ * @param channels New number of channels (1=mono, 2=stereo). 
  * @param bits_per_sample New number of bits per sample (8, 16, 24, 32). Currently, only 16 bits is supported
  * @return true if update succeeded, false if error.
  */

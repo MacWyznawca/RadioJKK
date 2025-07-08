@@ -24,12 +24,12 @@ typedef struct {
     int bytes_per_sample;
     int frame_counter;
     int frames_per_update;
-    long left_rms_sum; // Sum of squares for left channel (scaled)
-    long right_rms_sum; // Sum of squares for right channel (scaled)
+    uint32_t left_rms_sum; // Sum of squares for left channel (scaled)
+    uint32_t right_rms_sum; // Sum of squares for right channel (scaled)
     int accumulation_count;
 } volume_meter_t;
 
-static int fast_sqrt(long value) {
+static int fast_sqrt(uint32_t value) {
     if (value <= 0) return 0;
     
     int x = value;
@@ -48,7 +48,7 @@ static int fast_sqrt(long value) {
 // Conversion of RMS values to 0-100 level.
 static int rms_to_level(int rms_value) {
     if (rms_value < MIN_VOLUME_THRESHOLD) {
-        return 0; // Cisza
+        return 0; 
     }
     
     // Logarithmic approximation by lookup table
@@ -100,24 +100,38 @@ static int volume_meter_process(audio_element_handle_t self, char *in_buffer, in
     }
 
     volume_meter_t *meter = (volume_meter_t *)audio_element_getdata(self);
+
+    if (meter->cfg.volume_callback == NULL) {
+        return w_size;
+    }
     
     // We only analyze the volume if we have 16-bit stereo data
-    if (meter->cfg.channels == 2 && meter->cfg.bits_per_sample == 16) {
+    if ((meter->cfg.channels == 2 || meter->cfg.channels == 1) && meter->cfg.bits_per_sample == 16) {
         int16_t *samples = (int16_t *)in_buffer;
-        int sample_count = r_size / (2 * sizeof(int16_t)); // 2 channels, 16-bit both
+        
+        int sample_count;
+        if(meter->cfg.channels == 2) 
+            sample_count = r_size / (2 * sizeof(int16_t));
+        else 
+            sample_count = r_size / (sizeof(int16_t));
         
         if (sample_count > 0) {
             // We calculate the RMS for each channel without additional memory allocation
-            long left_sum = 0, right_sum = 0;
+            uint32_t left_sum = 0, right_sum = 0;
             
             for (int i = 0; i < sample_count; i++) {
-                // Lewy kanał
-                long left_sample = (long)samples[i * 2];
-                left_sum += (left_sample * left_sample) >> RMS_SHIFT;
-                
-                // Prawy kanał
-                long right_sample = (long)samples[i * 2 + 1];
-                right_sum += (right_sample * right_sample) >> RMS_SHIFT;
+                if(meter->cfg.channels == 2){
+                    uint32_t left_sample = (uint32_t)samples[i * 2];
+                    left_sum += (left_sample * left_sample) >> RMS_SHIFT;
+                    
+                    uint32_t right_sample = (uint32_t)samples[i * 2 + 1];
+                    right_sum += (right_sample * right_sample) >> RMS_SHIFT;
+                }
+                else {
+                    uint32_t left_sample = (uint32_t)samples[i];
+                    left_sum += (left_sample * left_sample) >> RMS_SHIFT;
+                    right_sum = left_sum;
+                }
             }
             
             meter->left_rms_sum += left_sum / sample_count;
@@ -133,10 +147,8 @@ static int volume_meter_process(audio_element_handle_t self, char *in_buffer, in
                 int left_level = rms_to_level(avg_left_rms);
                 int right_level = rms_to_level(avg_right_rms);
                 
-                if (meter->cfg.volume_callback) {
-                    meter->cfg.volume_callback(left_level, right_level);
-                }
-                
+                meter->cfg.volume_callback(left_level, right_level);
+                              
                 meter->frame_counter = 0;
                 meter->left_rms_sum = 0;
                 meter->right_rms_sum = 0;
