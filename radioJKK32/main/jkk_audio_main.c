@@ -34,6 +34,7 @@ static const char *TAG = "A_Main";
 
 static  JkkAudioMain_t audioMain = {0}; // EXT_RAM_BSS_ATTR
 
+
 static int _http_stream_event_handle(http_stream_event_msg_t *msg){
     
     if (msg->event_id == HTTP_STREAM_RESOLVE_ALL_TRACKS) {
@@ -183,10 +184,15 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
             ESP_LOGI(TAG, "[1.1] Create http stream to read data");
             http_stream_cfg_t http_cfg = HTTP_STREAM_CFG_DEFAULT();
             http_cfg.event_handle = _http_stream_event_handle;
-            http_cfg.type = AUDIO_STREAM_READER;
-            http_cfg.enable_playlist_parser = true;
-            http_cfg.auto_connect_next_track = true;
             http_cfg.task_stack = 6 * 1024 + 512;
+            http_cfg.type = AUDIO_STREAM_READER;
+            http_cfg.enable_playlist_parser = true;  // Natywna obsługa M3U/PLS
+            http_cfg.auto_connect_next_track = true; // Automatyczne przejście do następnego utworu
+            http_cfg.request_size = 1024;           // Większy bufor dla metadanych
+            http_cfg.request_range_size = 32768;    // Większy zakres dla AAC
+            http_cfg.cert_pem = NULL;               // Dla HTTP (nie HTTPS)
+            http_cfg.user_agent = "RadioJKK32/1.0"; // User agent
+
             audioMain.input = http_stream_init(&http_cfg);
             ESP_LOGI(TAG, "Pointer http_stream_reader=%p", audioMain.input);
             if (audioMain.input == NULL) {
