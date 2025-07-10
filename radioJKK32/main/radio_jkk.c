@@ -498,7 +498,10 @@ static void MainAppTask(void *arg){
     ESP_LOGI(TAG, "Start audio_pipeline");
     audio_pipeline_run(jkkRadio.audioMain->pipeline);
 
-    JkkChangeEq(jkkRadio.current_eq); // Set initial EQ
+    JkkAudioEqSetAll(jkkRadio.eqPresets[jkkRadio.current_eq].gain);
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+    if(JkkAudioMainProcessState()) JkkLcdEqTxt(jkkRadio.eqPresets[jkkRadio.current_eq].name);
+#endif
 
     while (1) {
         audio_event_iface_msg_t msg = {0};
