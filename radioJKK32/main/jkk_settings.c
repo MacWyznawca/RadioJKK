@@ -307,6 +307,7 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             return ESP_ERR_NO_MEM;
         }
     }
+    jkkRadio->radioStationChanged = false;
     
     int index = 0;
     while(fgets(lineStr, sizeof(lineStr), fptr)) {
@@ -321,8 +322,11 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
         if (uri) {
             char key[16] = {0};
             sprintf(key, JKK_RADIO_NVS_STATION_KEY, index);
+            
             if(strcmp(uri, jkkRadio->jkkRadioStations[index].uri) || strcmp(nameShort, jkkRadio->jkkRadioStations[index].nameShort) || strcmp(nameLong, jkkRadio->jkkRadioStations[index].nameLong) || jkkRadio->jkkRadioStations[index].is_favorite != (strcmp(is_favorite, "1") == 0)) {
                 // If the station is different from the one in NVS, update it
+                jkkRadio->radioStationChanged = true;
+
                 strncpy(jkkRadio->jkkRadioStations[index].uri, uri, sizeof(jkkRadio->jkkRadioStations[index].uri) - 1);
 
                 if (nameShort) {

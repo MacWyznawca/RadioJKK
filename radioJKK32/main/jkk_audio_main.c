@@ -115,8 +115,9 @@ esp_err_t JkkAudioRestartStream(void) {
     }
     esp_err_t ret = audio_pipeline_stop(audioMain.pipeline);
     ret |= audio_pipeline_wait_for_stop(audioMain.pipeline);
+    ret |= audio_pipeline_terminate(audioMain.pipeline);
     ret |= audio_pipeline_reset_ringbuffer(audioMain.pipeline);
-  //  ret |= audio_pipeline_reset_items_state(audioMain.pipeline);
+    ret |= audio_pipeline_reset_elements(audioMain.pipeline);
     ret |= audio_pipeline_run(audioMain.pipeline);
     return ret;
 }
@@ -205,7 +206,6 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
     audioMain.input_type = inType;
     audio_pipeline_register(audioMain.pipeline, audioMain.input, inTypeStr[inType]);
     ESP_LOGI(TAG, "[1.1] Register stream to audio pipeline with tag '%s'", inTypeStr[inType]);
-
 
     if(inType == 2 || inType == 3) {
         ESP_LOGI(TAG, "[1.2] Create decoder to decode audio data");

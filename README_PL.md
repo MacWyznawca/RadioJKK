@@ -5,6 +5,7 @@
 - Nagrywanie strumienia na kartę SD w formacie AAC.  
 - Kontrola głośności.  
 - Wybór ustawień korektora graficznego.  
+- Zapis wybranego equalizera i stacji radiowej
   
 Praca w toku!  
   
@@ -114,5 +115,7 @@ git submodule update --init --recursive
 - **Klawisz 3** [krótko] ciszej. Gdy wyświetlana jest lista stacji lub korektora - przewijanie przez listę. [długo] wyciszenie.  
 - **Klawisz 2** [krótko] wywołaj menu korektora, naciśnij ponownie aby potwierdzić wybór. [długo] rozpocznij nagrywanie, naciśnij ponownie: zatrzymaj nagrywanie.  
 - **Klawisz 1** [krótko] wywołaj menu stacji radiowych, naciśnij ponownie aby potwierdzić wybór. [długo] wyjdź z listy bez zmiany stacji.  
+
+Wybrana stacja i equalizer są zapisywane w pamięci NVS i odtwarzane przy uruchomieniu. Zapis następuje po 10 sekundach od zmiany, aby ograniczyć ilóść zapisów.
     
 Pliki audio są zapisywane w folderze `rec/recording_date` z dodatkowym wspólnym plikiem tekstowym zawierającym ścieżkę pliku audio, nazwę stacji i czas rozpoczęcia nagrywania.

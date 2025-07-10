@@ -44,7 +44,8 @@ static lv_obj_t *volLabel = NULL;
 static lv_obj_t *recLabel = NULL;
 static lv_obj_t *eqLabel = NULL;
 static lv_obj_t *timeLabel = NULL;
-static lv_obj_t *line = NULL;
+static lv_obj_t *lineVMeter = NULL;
+static lv_obj_t *lineVolume = NULL;
 
 static lv_obj_t *roller = NULL;
 static lv_group_t *rollGroup;
@@ -57,7 +58,8 @@ static lv_indev_t *indev_encoder = NULL;
 static uint32_t key = 0;
 static int8_t keyPressed = -1;
 
-static lv_point_precise_t line_points[] =  {{0, 0}, {128, 0}};
+static lv_point_precise_t lineVM_points[2] =  {{.x = 63, .y = 0}, {.x = 64, .y = 0}};
+static lv_point_precise_t lineVol_points[2] =  {{.x = 63, .y = 0}, {.x = 64, .y = 0}};
 
 void ScrollLabTimerHandler(lv_timer_t * timer){
     lv_timer_pause(timer);
@@ -112,6 +114,10 @@ void JkkLcdVolumeInt(int vol) {
         ESP_LOGE(TAG, "Display not initialized");
         return;
     }
+
+    lineVol_points[1].x = 64 + ((vol * 63) / 100);
+    lineVol_points[0].x = 63 - ((vol * 63) / 100);
+
     char volTxt[10] = {0};
     if(vol == 0){
         snprintf(volTxt, sizeof(volTxt), "MUTE");
@@ -121,6 +127,7 @@ void JkkLcdVolumeInt(int vol) {
     }
     if(JkkLcdPortLock(0)){
         lv_label_set_text(volLabel, volTxt);
+        lv_obj_invalidate(lineVolume);
         JkkLcdPortUnlock();
     }
 }
@@ -170,10 +177,10 @@ void JkkLcdButtonSet(int keyCode, int8_t pressed) {
 }
 
 void JkkLcdVolumeIndicatorCallback(int left_volume, int right_volume) {
-    line_points[1].x = 64 + (right_volume * 63 / 100);
-    line_points[0].x = 63 - ((left_volume * 63) / 100);
+    lineVM_points[1].x = 64 + ((right_volume * 63) / 100);
+    lineVM_points[0].x = 63 - ((left_volume * 63) / 100);
     if(JkkLcdPortLock(0)){
-        lv_obj_invalidate(line);
+        lv_obj_invalidate(lineVMeter);
         JkkLcdPortUnlock();
     }
 }
@@ -330,14 +337,27 @@ esp_err_t JkkLcdUiInit(void){
         lv_obj_set_width(timeLabel, 42);
         lv_obj_align(timeLabel, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
 
-        static lv_style_t style_line;
-        lv_style_init(&style_line);
-        lv_style_set_line_width(&style_line, 3);
+        static lv_style_t style_VMeter;
+        lv_style_init(&style_VMeter);
+        lv_style_set_line_width(&style_VMeter, 3);
 
-        line = lv_line_create(lv_screen_active());
-        lv_line_set_points(line, line_points, 2);     /*Set the points*/
-        lv_obj_add_style(line, &style_line, 0);
-        lv_obj_align(line, LV_ALIGN_BOTTOM_MID, 0, -18);
+        lineVMeter = lv_line_create(scr);
+        lv_line_set_points(lineVMeter, lineVM_points, 2);     /*Set the points*/
+        lv_obj_add_style(lineVMeter, &style_VMeter, 0);
+        lv_obj_set_width(lineVMeter, 128),
+        lv_obj_set_height(lineVMeter, 3),
+        lv_obj_align(lineVMeter, LV_ALIGN_BOTTOM_MID, 0, -16);
+
+        static lv_style_t style_Volume;
+        lv_style_init(&style_Volume);
+        lv_style_set_line_width(&style_Volume, 2);
+
+        lineVolume = lv_line_create(scr);
+        lv_line_set_points(lineVolume, lineVol_points, 2);     /*Set the points*/
+        lv_obj_add_style(lineVolume, &style_Volume, 0);
+        lv_obj_set_width(lineVolume, 128),
+        lv_obj_set_height(lineVolume, 2),
+        lv_obj_align(lineVolume, LV_ALIGN_BOTTOM_MID, 0, -13);
 
         rollGroup = lv_group_create();
 
@@ -358,7 +378,6 @@ esp_err_t JkkLcdUiInit(void){
         lv_obj_align(roller, LV_ALIGN_CENTER, 0, 0);
         lv_roller_set_selected(roller, 0, LV_ANIM_OFF);
         lv_obj_add_event_cb(roller, RadioRollerHandler, LV_EVENT_VALUE_CHANGED, NULL);
-
 
         lv_group_add_obj(rollGroup, roller);
 

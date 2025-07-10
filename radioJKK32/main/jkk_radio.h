@@ -33,11 +33,35 @@ extern "C" {
 
 #define SD_RECORDS_PATH "/sdcard/rec"
 
-#define JKK_RADIO_MAX_STATIONS (20) // Maximum number of radio stations
+#define JKK_RADIO_MAX_STATIONS (30) // Maximum number of radio stations
 #define JKK_RADIO_MAX_EBMEDDED_STATIONS (4) // Maximum number of embedded radio stations
 
 #define JKK_RADIO_MAX_EQ_PRESETS (10) // Maximum number of equalizers preset
 #define JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS (3) // Maximum number of embedded equalizers preset
+
+#define JKK_RADIO_WAIT_TO_SAVE_TIME (10 * 1000)
+
+typedef enum  {
+    JKK_RADIO_STATION_FAV = -2, // Favorite station
+    JKK_RADIO_STATION_PREV = -1, // Previous station
+    JKK_RADIO_STATION_FIRST = 0, // First station
+    JKK_RADIO_STATION_NEXT = 1, // Next station
+    JKK_RADIO_STATION_MAX,
+} changeStation_e;
+
+typedef enum  {
+    JKK_RADIO_CMD_SET_STATION = 100, 
+    JKK_RADIO_CMD_SET_EQUALIZER = 101, 
+    JKK_RADIO_CMD_SET_UNKNOW, 
+} customCmd_e;
+
+typedef enum  {
+    JKK_RADIO_TO_SAVE_NOTHING = 0, 
+    JKK_RADIO_TO_SAVE_CURRENT_STATION = 1 << 0,
+    JKK_RADIO_TO_SAVE_EQ  = 1 << 1,
+    JKK_RADIO_TO_SAVE_VOLUME  = 1 << 2,
+    JKK_RADIO_TO_SAVE_MAX,
+} toSave_e;
 
 typedef struct JkkRadioEqualizer_s {
     char name[16];
@@ -77,28 +101,19 @@ typedef struct JkkRadio_s {
     int eq_count;
     bool is_playing; // Flag indicating if the radio is currently playing
     bool is_ChangingStation; // Flag indicating if the radio is currently playing
+    toSave_e whatToSave;
     JkkRadioStations_t *jkkRadioStations; // Pointer to the array of radio stations
+    bool radioStationChanged;
     JkkRadioEqualizer_t *eqPresets;
     char wifiSSID[32]; // WiFi SSID
     char wifiPassword[64]; // WiFi Password
+    TimerHandle_t waitTimer_h;
 } JkkRadio_t;
-
-typedef enum  {
-    JKK_RADIO_STATION_FAV = -2, // Favorite station
-    JKK_RADIO_STATION_PREV = -1, // Previous station
-    JKK_RADIO_STATION_FIRST = 0, // First station
-    JKK_RADIO_STATION_NEXT = 1, // Next station
-} changeStation_e;
-
-typedef enum  {
-    JKK_RADIO_CMD_SET_STATION = 100, 
-    JKK_RADIO_CMD_SET_EQUALIZER = 101, 
-    JKK_RADIO_CMD_SET_UNKNOW, 
-} customCmd_e;
 
 void JkkRadioSetStation(uint16_t station);
 
 esp_err_t JkkRadioSendMessageToMain(int mess, int command);
+
 
 #ifdef __cplusplus
 }

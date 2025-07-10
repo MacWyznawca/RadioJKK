@@ -20,6 +20,8 @@ extern "C"
 
 esp_err_t JkkNvsBlobGet(const char *key, const char *nameSpace, void *value, size_t *length);
 esp_err_t JkkNvsBlobSet(const char *key, const char *nameSpace, const void *value, size_t length);
+esp_err_t JkkNvs64_set(const char *key, const char *nameSpace, uint64_t value);
+esp_err_t JkkNvs64_get(const char *key, const char *nameSpace, uint64_t *value);
 esp_err_t JkkNvsErase(const char *key, const char *nameSpace);
 
 #ifdef __cplusplus

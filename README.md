@@ -5,6 +5,7 @@
 - Recording stream to SD card in AAC format.  
 - Volume control.  
 - Graphic equalizer settings selection.  
+- Storing equalizer and radio station settings.
   
 Work in progress!  
   
@@ -114,5 +115,7 @@ git submodule update --init --recursive
 - **Key 3** [short] quieter. When station or equalizer list is displayed - scroll through list. [long] mute.  
 - **Key 2** [short] call equalizer menu, press again to confirm selection. [long] start recording, press again: stop recording.  
 - **Key 1** [short] call radio station menu, press again to confirm selection. [long] exit list without changing station.  
+
+The selected station and equalizer are stored in NVS memory and restored at startup. The writing occurs 10 seconds after the change to limit the number of writes.
     
 Audio files are saved in `rec/recording_date` folder with additional common text file containing audio file path, station name and recording start time.

@@ -67,7 +67,7 @@ exit:
 esp_err_t JkkNvsErase(const char *key, const char *nameSpace){
     nvs_handle nvsHandle = 0;
     esp_err_t ret = nvs_open(nameSpace, NVS_READWRITE, &nvsHandle);
-     if (ret != ESP_OK) {
+    if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Error (%s) opening NVS nvsHandle!\n", esp_err_to_name(ret));
         return ESP_ERR_NVS_INVALID_HANDLE;
     }
@@ -82,3 +82,33 @@ esp_err_t JkkNvsErase(const char *key, const char *nameSpace){
     return ret;
 }
 
+esp_err_t JkkNvs64_set(const char *key, const char *nameSpace, uint64_t value){
+    esp_err_t ret = ESP_OK;
+    nvs_handle handle = 0;
+
+    ret = nvs_open(nameSpace, NVS_READWRITE, &handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Error (%s) opening NVS nvsHandle!\n", esp_err_to_name(ret));
+        return ESP_ERR_NVS_INVALID_HANDLE;
+    }
+    ret = nvs_set_u64(handle, key, value);
+    nvs_commit(handle);
+    nvs_close(handle);
+
+    return ESP_OK;
+}
+
+esp_err_t JkkNvs64_get(const char *key, const char *nameSpace, uint64_t *value){
+    esp_err_t ret = ESP_OK;
+    nvs_handle handle = 0;
+
+    ret = nvs_open(nameSpace, NVS_READWRITE, &handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Error (%s) opening NVS nvsHandle!\n", esp_err_to_name(ret));
+        return ESP_ERR_NVS_INVALID_HANDLE;
+    }
+    ret = nvs_get_u64(handle, key, value);
+    nvs_close(handle);
+
+    return ret;
+}
