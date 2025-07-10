@@ -8,7 +8,7 @@
 radioJKK32/managed_components
 radioJKK32/managed_components/*
 
-radioJKK32/main/ID3parser*
+radioJKK32/main/metadata_parser*
 
 */build
 */build/*

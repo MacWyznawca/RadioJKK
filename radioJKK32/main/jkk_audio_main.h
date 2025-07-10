@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#define JKK_MAX_PIPELINE_ELEMENTS (6)
+#define JKK_MAX_PIPELINE_ELEMENTS (8)
 
 typedef struct JkkAudioMain_s {
     audio_pipeline_handle_t pipeline;
