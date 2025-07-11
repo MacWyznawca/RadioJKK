@@ -5,7 +5,8 @@
 - Nagrywanie strumienia na kartę SD w formacie AAC.  
 - Kontrola głośności.  
 - Wybór ustawień korektora graficznego.  
-- Zapis wybranego equalizera i stacji radiowej
+- Zapis wybranego equalizera i stacji radiowej.
+- Obsługa błędów odtwarzania.
   
 Praca w toku!  
   
@@ -117,5 +118,7 @@ git submodule update --init --recursive
 - **Klawisz 1** [krótko] wywołaj menu stacji radiowych. Gdy wyświetlany jest Roller (stacje lub equalizery) zatwierdzenie wyboru. [długo] wyjdź z listy bez zatwierdzania wyboru (ESC).  
 
 Wybrana stacja i equalizer są zapisywane w pamięci NVS i odtwarzane przy uruchomieniu. Zapis następuje po 10 sekundach od zmiany, aby ograniczyć ilóść zapisów.
+
+W przypadku błędu przy zmianie stacji następuje powrót do poprzednio dotwarzanej.
     
-Pliki audio są zapisywane w folderze `rec/recording_date` z dodatkowym wspólnym plikiem tekstowym zawierającym ścieżkę pliku audio, nazwę stacji i czas rozpoczęcia nagrywania.
+Pliki zapisów audio są zapisywane w folderze `rec/recording_date` z dodatkowym wspólnym plikiem tekstowym zawierającym ścieżkę pliku audio, nazwę stacji i czas rozpoczęcia nagrywania.

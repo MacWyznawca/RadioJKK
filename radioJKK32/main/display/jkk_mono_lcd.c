@@ -54,7 +54,7 @@ static lv_group_t *rollGroup;
 static jkkRollerMode_t rollerMode = JKK_ROLLER_MODE_HIDE;
 
 static lv_timer_t *rollerTimer = NULL;
-static lv_timer_t *stationScrollTimer = NULL;
+// static lv_timer_t *stationScrollTimer = NULL;
 
 static lv_indev_t *indev_encoder = NULL;
 static uint32_t key = 0;
@@ -63,10 +63,10 @@ static int8_t keyPressed = -1;
 static lv_point_precise_t lineVM_points[2] =  {{.x = 63, .y = 0}, {.x = 64, .y = 0}};
 static lv_point_precise_t lineVol_points[2] =  {{.x = 63, .y = 0}, {.x = 64, .y = 0}};
 
-void ScrollLabTimerHandler(lv_timer_t * timer){
-    lv_timer_pause(timer);
-    lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_SCROLL_CIRCULAR);
-}
+//void ScrollLabTimerHandler(lv_timer_t * timer){
+//    lv_timer_pause(timer);
+//    lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_SCROLL_CIRCULAR);
+//}
 
 void RollerHideTimerHandler(lv_timer_t * timer){
     lv_timer_pause(timer);
@@ -84,10 +84,10 @@ void JkkLcdStationTxt(char *stationName) {
     char stationNameTmp[130] = {0};
     Utf8ToAsciiPL(stationName, stationNameTmp);
     if(JkkLcdPortLock(0)){   
-        lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_CLIP);   
+      //  lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_CLIP);   
         lv_label_set_text(radioLabel, stationNameTmp);       
-        lv_timer_reset(stationScrollTimer);
-        lv_timer_resume(stationScrollTimer);
+     //   lv_timer_reset(stationScrollTimer);
+     //   lv_timer_resume(stationScrollTimer);
         JkkLcdPortUnlock();
     } else {
         ESP_LOGE(TAG, "Failed to lock the port for updating station text");
@@ -446,7 +446,7 @@ esp_err_t JkkLcdUiInit(JkkRadio_t *radio){
         lv_obj_set_style_text_align(rolerLabel, LV_TEXT_ALIGN_LEFT, 0);
         lv_label_set_text(rolerLabel, "");
         lv_obj_add_style(rolerLabel, &style_rollLab, 0);
-        lv_obj_set_width(rolerLabel, 68);
+        lv_obj_set_width(rolerLabel, 72);
         lv_obj_align(rolerLabel, LV_ALIGN_LEFT_MID, -6, 0);
         lv_obj_add_flag(rolerLabel, LV_OBJ_FLAG_HIDDEN);
 
@@ -477,10 +477,10 @@ esp_err_t JkkLcdUiInit(JkkRadio_t *radio){
         lv_obj_add_flag(roller, LV_OBJ_FLAG_HIDDEN);
         rollerMode = JKK_ROLLER_MODE_HIDE;
 
-        stationScrollTimer = lv_timer_create_basic();
-        lv_timer_pause(stationScrollTimer);
-        lv_timer_set_cb(stationScrollTimer, ScrollLabTimerHandler);
-        lv_timer_set_period(stationScrollTimer, 750);
+     //   stationScrollTimer = lv_timer_create_basic();
+     //   lv_timer_pause(stationScrollTimer);
+     //   lv_timer_set_cb(stationScrollTimer, ScrollLabTimerHandler);
+     //   lv_timer_set_period(stationScrollTimer, 750);
 
         rollerTimer = lv_timer_create_basic();
         lv_timer_pause(rollerTimer);

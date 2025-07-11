@@ -56,7 +56,7 @@ static const char *TAG = "LCD PORT";
 #define JKK_RADIO_LCD_PARAM_BITS         8
 
 #define JKK_RADIO_LVGL_TASK_STACK_SIZE   (6 * 1024)
-#define JKK_RADIO_LVGL_TASK_PRIORITY     4
+#define JKK_RADIO_LVGL_TASK_PRIORITY     3
 #define JKK_RADIO_LVGL_TASK_CPU          1
 #define JKK_RADIO_LVGL_TICK_PERIOD_MS    5
 

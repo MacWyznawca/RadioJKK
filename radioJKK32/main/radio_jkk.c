@@ -87,30 +87,6 @@ static TaskHandle_t eventsHandle = NULL;
 
 static EXT_RAM_BSS_ATTR JkkRadio_t jkkRadio = {0};
 
-// Callback do obsługi metadanych
-static void my_metadata_callback(jkk_metadata_t *metadata, void *user_data) {
-    ESP_LOGI(TAG, "=== NOWE METADANE ===");
-    
-    if (strlen(metadata->station) > 0) {
-        ESP_LOGI(TAG, "📻 Stacja: %s", metadata->station);
-    }
-    if (strlen(metadata->genre) > 0) {
-        ESP_LOGI(TAG, "🎼 Gatunek: %s", metadata->genre);
-    }
-    if (metadata->bitrate > 0) {
-        ESP_LOGI(TAG, "🔊 Bitrate: %lu kbps", metadata->bitrate);
-    }
-    
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
-    // Zaktualizuj wyświetlacz
-    if (strlen(metadata->station) > 0) {
-        JkkLcdStationTxt(metadata->station);
-    }
-#endif
-    
-    ESP_LOGI(TAG, "==================");
-}
-
 static void JkkTaskInfo(void){
   //  static char buf[1024];
     audio_sys_get_real_time_stats();
@@ -312,7 +288,7 @@ void JkkRadioSetStation(uint16_t station){
        // return;
     }
 
-    if(jkkRadio.is_ChangingStation) {
+    if(jkkRadio.statusStation == JKK_RADIO_STATUS_CHANGING_STATION) {
         ESP_LOGW(TAG, "Changing station in progress");
         return;
     }
@@ -328,7 +304,7 @@ void JkkRadioSetStation(uint16_t station){
 #endif
     }
 
-    jkkRadio.is_ChangingStation = true;
+    jkkRadio.statusStation = JKK_RADIO_STATUS_CHANGING_STATION;
 
     esp_err_t ret = ESP_OK;
 
@@ -338,7 +314,7 @@ void JkkRadioSetStation(uint16_t station){
 
     if(ret != ESP_OK){
         ESP_LOGI(TAG, "audio_pipeline_reset_ringbuffer Error: %d", ret);
-        jkkRadio.is_ChangingStation = false;
+        jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
       //  return;
     }
     ret = ESP_OK;
@@ -352,16 +328,18 @@ void JkkRadioSetStation(uint16_t station){
 
     if(ret != ESP_OK){
         ESP_LOGI(TAG, "audio_pipeline_run Error: %d", ret);
-        jkkRadio.is_ChangingStation = false;
+        jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
     }
     else {
         if(station != jkkRadio.current_station){
+            jkkRadio.prev_station = jkkRadio.current_station;
             jkkRadio.current_station = station;
             jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
+            
             xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY); // Save ststion after JKK_RADIO_WAIT_TO_SAVE_TIME to limit the number of writes to NVS 
         }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-        JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
+        JkkLcdStationTxt(">tuning<");
         if(JkkLcdRollerMode() == JKK_ROLLER_MODE_STATION_LIST) {
             JkkLcdShowRoller(true, jkkRadio.current_station, JKK_ROLLER_MODE_STATION_LIST);
         }
@@ -376,7 +354,7 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
     ESP_LOGI(TAG, "SaveTimerHandle: %d", jkkRadio.whatToSave);
 
     if(jkkRadio.whatToSave == JKK_RADIO_TO_SAVE_CURRENT_STATION) {
-        jkkRadio.is_ChangingStation = false;
+        jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
     }
 
     if(jkkRadio.whatToSave > JKK_RADIO_TO_SAVE_NOTHING && jkkRadio.whatToSave < JKK_RADIO_TO_SAVE_MAX){
@@ -441,7 +419,7 @@ static void MainAppTask(void *arg){
         JkkRadioDataToSave_t toRead = {0};
         JkkNvs64_get("stateStEq", JKK_RADIO_NVS_NAMESPACE, &toRead.all64);
         jkkRadio.current_eq = toRead.current_eq < jkkRadio.eq_count ? toRead.current_eq : 0;
-        jkkRadio.current_station = toRead.current_station < jkkRadio.station_count ? toRead.current_station : 0;
+        jkkRadio.prev_station = jkkRadio.current_station = toRead.current_station < jkkRadio.station_count ? toRead.current_station : 0;
     }
 
     ESP_LOGI(TAG, "Start and wait for Wi-Fi network");
@@ -534,6 +512,23 @@ static void MainAppTask(void *arg){
                 continue;
             }
         } 
+        if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.cmd == AEL_MSG_CMD_REPORT_STATUS && msg.data_len == 4 && msg.data) {
+            if((int)(intptr_t)msg.data >= AEL_STATUS_ERROR_OPEN && (int)(intptr_t)msg.data <= AEL_STATUS_ERROR_UNKNOWN){
+                switch(jkkRadio.statusStation){
+                    case JKK_RADIO_STATUS_CHANGING_STATION:{
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+                        JkkLcdStationTxt(" error! ");
+#endif
+                        vTaskDelay(pdMS_TO_TICKS(500));
+                        jkkRadio.statusStation = JKK_RADIO_STATUS_ERROR;
+                        JkkRadioSetStation(jkkRadio.prev_station);
+                    }
+                    break;
+                    default:
+                    break;
+                }
+            }
+        }
         if(msg.source_type == AUDIO_ELEMENT_TYPE_UNKNOW){
             if(msg.cmd == JKK_RADIO_CMD_SET_STATION){
                 int received_value = (int)(intptr_t)msg.data;
@@ -548,7 +543,8 @@ static void MainAppTask(void *arg){
                 JkkChangeEq(received_value);
             }
         } 
-      //  ESP_LOGI(TAG, "[ any ] msg.source_type=%d, msg.cmd=%d, Pointer: %p", msg.source_type, msg.cmd, msg.source);
+      //  int data = msg.data != NULL ? (int)(intptr_t)msg.data : -1;
+      //  ESP_LOGI(TAG, "[ any ] msg.source_type=%d, msg.cmd=%d, Pointer: %p, data: %d", msg.source_type, msg.cmd, msg.source, data);
         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
             && msg.source == (void *)jkkRadio.audioSdWrite->fatfs_wr
             && msg.cmd == AEL_MSG_CMD_REPORT_STATUS
@@ -594,10 +590,14 @@ static void MainAppTask(void *arg){
 #endif
                 memcpy(&prev_music_info, &music_info, sizeof(audio_element_info_t));
             }
-
+            vTaskDelay(pdMS_TO_TICKS(100));
             audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, true);
-
-            jkkRadio.is_ChangingStation = false;
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+            if(jkkRadio.statusStation == JKK_RADIO_STATUS_CHANGING_STATION){
+                JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
+            }
+#endif
+            jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
             continue;
         }
 

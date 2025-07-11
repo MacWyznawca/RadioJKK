@@ -6,6 +6,7 @@
 - Volume control.  
 - Graphic equalizer settings selection.  
 - Storing equalizer and radio station settings.
+- Playback error handling.
   
 Work in progress!  
   
@@ -117,5 +118,7 @@ git submodule update --init --recursive
 - **Key 1** [short press] call radio station menu. When Roller is displayed (stations or equalizers) confirm selection. [long press] exit list without confirming selection. 
 
 The selected station and equalizer are stored in NVS memory and restored at startup. The writing occurs 10 seconds after the change to limit the number of writes.
+
+In the event of an error when changing a radio station, it reverts to the previously reached one.
     
 Audio files are saved in `rec/recording_date` folder with additional common text file containing audio file path, station name and recording start time.

@@ -32,12 +32,16 @@ static const JkkRadioEqualizer_t eq_embedded[JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS] 
         .gain = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     }, 
     {
+        .name = "music",
+        .gain = {2,3,1,0,-1,-2,0,1,2,0},
+    }, 
+    {
         .name = "rock",
-        .gain = {0, 6, 6, 4, 0, -1, -1, 0, 6, 10},
+        .gain = {4,5,3,1,-1,-3,-1,3,4,0},
     }, 
     {
         .name = "speak",
-        .gain = {-6, -4, -1, 1, 3, 3, 1, -1, -4, -6},
+        .gain = {-3,-2,1,3,3,1,0,-1,-2,0},
     }, 
 };
 
@@ -562,7 +566,7 @@ esp_err_t JkkRadioEqSdRead(JkkRadio_t *jkkRadio) {
     fclose(fptr);
     ESP_LOGI(TAG, "Loaded %d stations from /sdcard/stations.txt", index);
 
-    ESP_LOGI(TAG, "Loaded stations:");
+    ESP_LOGI(TAG, "Loaded equalizers:");
     for (int i = 0; i < index; i++) {
         ESP_LOGI(TAG, "Updated eq %d: name=%s",
                  i,

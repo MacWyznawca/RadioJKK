@@ -37,7 +37,7 @@ extern "C" {
 #define JKK_RADIO_MAX_EBMEDDED_STATIONS (4) // Maximum number of embedded radio stations
 
 #define JKK_RADIO_MAX_EQ_PRESETS (10) // Maximum number of equalizers preset
-#define JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS (3) // Maximum number of embedded equalizers preset
+#define JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS (4) // Maximum number of embedded equalizers preset
 
 #define JKK_RADIO_WAIT_TO_SAVE_TIME (10 * 1000)
 
@@ -62,6 +62,13 @@ typedef enum  {
     JKK_RADIO_TO_SAVE_VOLUME  = 1 << 2,
     JKK_RADIO_TO_SAVE_MAX,
 } toSave_e;
+
+typedef enum  {
+    JKK_RADIO_STATUS_NORMAL = 0, 
+    JKK_RADIO_STATUS_CHANGING_STATION,
+    JKK_RADIO_STATUS_ERROR,
+    JKK_RADIO_STATUS_MAX,
+} status_e;
 
 typedef struct JkkRadioEqualizer_s {
     char name[16];
@@ -96,11 +103,12 @@ typedef struct JkkRadio_s {
     display_service_handle_t disp_serv;
     int player_volume; // Volume level for the player
     int current_station; // Current station index
+    int prev_station;
     int station_count; // Total number of stations
     int current_eq;
     int eq_count;
     bool is_playing; // Flag indicating if the radio is currently playing
-    bool is_ChangingStation; // Flag indicating if the radio is currently playing
+    status_e statusStation; 
     toSave_e whatToSave;
     JkkRadioStations_t *jkkRadioStations; // Pointer to the array of radio stations
     bool radioStationChanged;
