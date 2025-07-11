@@ -33,7 +33,7 @@ extern "C" {
 
 #define SD_RECORDS_PATH "/sdcard/rec"
 
-#define JKK_RADIO_MAX_STATIONS (30) // Maximum number of radio stations
+#define JKK_RADIO_MAX_STATIONS (40) // Maximum number of radio stations
 #define JKK_RADIO_MAX_EBMEDDED_STATIONS (4) // Maximum number of embedded radio stations
 
 #define JKK_RADIO_MAX_EQ_PRESETS (10) // Maximum number of equalizers preset

@@ -65,7 +65,7 @@ mySSID;myPassword
 
 After restart, WiFi settings are saved in NVS flash memory and the presence of SD card in the reader is no longer necessary.
   
-- Text file (plain text) `stations.txt` with list of radio stations (maximum 20) in csv format (fields separated by semicolon).  
+- Text file (plain text) `stations.txt` with list of radio stations (maximum **40**) in csv format (fields separated by semicolon).  
 `station url;short name;description;1 or 0 (favorites);type` e.g.:  
 ```
 http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław - Public Radio;0;5  
@@ -110,11 +110,11 @@ git submodule update --init --recursive
 - **Key 2** [short] start recording (LED blinks twice every 3 seconds), [long] stop recording (LED blinks 3 times).  
 - **Key 1** [short] go to next equalizer setting, [long] return to settings without correction.  
 
-### Control in version with display:
-- **Key 4** [short] louder. When station or equalizer list is displayed - scroll through list.
-- **Key 3** [short] quieter. When station or equalizer list is displayed - scroll through list. [long] mute.  
-- **Key 2** [short] call equalizer menu, press again to confirm selection. [long] start recording, press again: stop recording.  
-- **Key 1** [short] call radio station menu, press again to confirm selection. [long] exit list without changing station.  
+### Display Version Controls:
+- **Key 4** [short press] volume up. When station list or equalizer is displayed - scroll through the list.
+- **Key 3** [short press] volume down. When station list or equalizer is displayed - scroll through the list. [long press] mute.
+- **Key 2** [short press] call equalizer menu, [long press] start recording, press again: stop recording.
+- **Key 1** [short press] call radio station menu. When Roller is displayed (stations or equalizers) confirm selection. [long press] exit list without confirming selection. 
 
 The selected station and equalizer are stored in NVS memory and restored at startup. The writing occurs 10 seconds after the change to limit the number of writes.
     

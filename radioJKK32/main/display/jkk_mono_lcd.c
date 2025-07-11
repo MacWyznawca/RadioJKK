@@ -28,7 +28,6 @@
 
 #include "../jkk_radio.h"
 
-
 #if CONFIG_JKK_RADIO_LCD_CONTROLLER_SH1107
 #include "esp_lcd_sh1107.h"
 #else
@@ -39,11 +38,14 @@
 
 static const char *TAG = "LCD";
 
+static JkkRadio_t *jkkRadio = NULL;
+
 static lv_obj_t *radioLabel = NULL;
 static lv_obj_t *volLabel = NULL;
 static lv_obj_t *recLabel = NULL;
 static lv_obj_t *eqLabel = NULL;
 static lv_obj_t *timeLabel = NULL;
+static lv_obj_t *rolerLabel = NULL;
 static lv_obj_t *lineVMeter = NULL;
 static lv_obj_t *lineVolume = NULL;
 
@@ -70,6 +72,7 @@ void RollerHideTimerHandler(lv_timer_t * timer){
     lv_timer_pause(timer);
     JkkLcdButtonSet(LV_KEY_ESC, 1);
     lv_obj_add_flag(roller, LV_OBJ_FLAG_HIDDEN); 
+    lv_obj_add_flag(rolerLabel, LV_OBJ_FLAG_HIDDEN); 
     rollerMode = JKK_ROLLER_MODE_HIDE;
 }
 
@@ -225,12 +228,41 @@ static void JkkLcdShowObj(lv_obj_t *obj, bool show){
     if(JkkLcdPortLock(0)){
         if(show) {
             lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+            if(obj == roller) {
+                lv_obj_clear_flag(rolerLabel, LV_OBJ_FLAG_HIDDEN);
+                if(eqLabel && jkkRadio){
+                    switch (rollerMode) {
+                        case JKK_ROLLER_MODE_STATION_LIST:{
+                            if(JkkLcdPortLock(0)){
+                                char stationNameTmp[256] = {0};
+                                Utf8ToAsciiPL(jkkRadio->jkkRadioStations[jkkRadio->current_station].nameLong, stationNameTmp);
+                                lv_label_set_text(rolerLabel, stationNameTmp);
+                                JkkLcdPortUnlock();
+                            }
+                        }
+                        break;
+                        case JKK_ROLLER_MODE_EQUALIZER_LIST:{
+                            if(JkkLcdPortLock(0)){
+                                lv_label_set_text(rolerLabel, jkkRadio->eqPresets[jkkRadio->current_eq].name);
+                                JkkLcdPortUnlock();
+                            }
+                        }
+                        break;
+                        default:
+                        break;
+                    }
+                }
+            }
 
             lv_timer_reset(rollerTimer);
             lv_timer_resume(rollerTimer);
         } else {
             lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN); 
-            if(obj == roller) rollerMode = JKK_ROLLER_MODE_HIDE;
+            if(obj == roller) {
+                lv_obj_add_flag(rolerLabel, LV_OBJ_FLAG_HIDDEN);
+                lv_label_set_text(rolerLabel, "");
+                rollerMode = JKK_ROLLER_MODE_HIDE;
+            }
             lv_timer_pause(rollerTimer);
         }
         JkkLcdPortUnlock();
@@ -239,9 +271,50 @@ static void JkkLcdShowObj(lv_obj_t *obj, bool show){
 
 static void RadioRollerHandler(lv_event_t * e){
     lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t * obj = lv_event_get_target_obj(e);
+    lv_obj_t *obj = lv_event_get_target_obj(e);
+
+    int indx = -1;
+
+    if(code == LV_EVENT_KEY){
+        indx = lv_roller_get_selected(obj);
+        if(eqLabel && jkkRadio){
+            switch (rollerMode) {
+                case JKK_ROLLER_MODE_STATION_LIST:{
+                    if(indx >= 0 && indx < jkkRadio->station_count){
+                        if(JkkLcdPortLock(0)){
+                            char stationNameTmp[256] = {0};
+                            Utf8ToAsciiPL(jkkRadio->jkkRadioStations[indx].nameLong, stationNameTmp);
+                            lv_label_set_text(rolerLabel, stationNameTmp);
+                            JkkLcdPortUnlock();
+                        }
+                    }
+                    else {
+                        lv_label_set_text(rolerLabel, "");
+                    }
+                }
+                break;
+                case JKK_ROLLER_MODE_EQUALIZER_LIST:{
+                    if(indx >= 0 && indx < jkkRadio->eq_count){
+                        if(JkkLcdPortLock(0)){
+                            lv_label_set_text(rolerLabel, jkkRadio->eqPresets[indx].name);
+                            JkkLcdPortUnlock();
+                        }
+                    }
+                    else {
+                        lv_label_set_text(rolerLabel, "");
+                    }
+                }
+                break;
+                default:
+                break;
+            }
+        }
+
+        ESP_LOGI(TAG, "Roller event code: %d, indx: %d\n", code, indx);
+    }
+
     if(code == LV_EVENT_VALUE_CHANGED){
-        int indx = lv_roller_get_selected(obj);
+        indx = lv_roller_get_selected(obj);
         ESP_LOGI(TAG, "Selected: %d\n", indx);
         customCmd_e command = JKK_RADIO_CMD_SET_UNKNOW;
         switch (rollerMode) {
@@ -289,7 +362,10 @@ void JkkLcdSetRollerOptions(char *options, uint8_t idx){
     }
 }
 
-esp_err_t JkkLcdUiInit(void){
+esp_err_t JkkLcdUiInit(JkkRadio_t *radio){
+
+    jkkRadio = radio;
+
     lv_disp_t *display = JkkLcdPortInit();
 
     if(JkkLcdPortLock(0)){
@@ -359,6 +435,21 @@ esp_err_t JkkLcdUiInit(void){
         lv_obj_set_height(lineVolume, 2),
         lv_obj_align(lineVolume, LV_ALIGN_BOTTOM_MID, 0, -13);
 
+        static lv_style_t style_rollLab;
+        lv_style_init(&style_rollLab);
+        lv_style_set_bg_opa(&style_rollLab, LV_OPA_COVER);
+        lv_style_set_border_width(&style_rollLab, 6);
+        lv_style_set_border_color(&style_rollLab, lv_color_white());
+
+        rolerLabel = lv_label_create(scr);
+        lv_obj_set_style_text_font(rolerLabel, &lv_font_unscii_8, 0);
+        lv_obj_set_style_text_align(rolerLabel, LV_TEXT_ALIGN_LEFT, 0);
+        lv_label_set_text(rolerLabel, "");
+        lv_obj_add_style(rolerLabel, &style_rollLab, 0);
+        lv_obj_set_width(rolerLabel, 68);
+        lv_obj_align(rolerLabel, LV_ALIGN_LEFT_MID, -6, 0);
+        lv_obj_add_flag(rolerLabel, LV_OBJ_FLAG_HIDDEN);
+
         rollGroup = lv_group_create();
 
         static lv_style_t style_rol;
@@ -375,9 +466,9 @@ esp_err_t JkkLcdUiInit(void){
 
         lv_obj_set_style_text_line_space(roller, 2, 0);
         lv_roller_set_visible_row_count(roller, 5);
-        lv_obj_align(roller, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_align(roller, LV_ALIGN_RIGHT_MID, 0, 0);
         lv_roller_set_selected(roller, 0, LV_ANIM_OFF);
-        lv_obj_add_event_cb(roller, RadioRollerHandler, LV_EVENT_VALUE_CHANGED, NULL);
+        lv_obj_add_event_cb(roller, RadioRollerHandler, LV_EVENT_ALL, NULL);
 
         lv_group_add_obj(rollGroup, roller);
 

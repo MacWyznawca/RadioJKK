@@ -6,6 +6,7 @@
 #pragma once
 
 #include <string.h>
+#include "../jkk_radio.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,7 +21,7 @@ typedef enum {
     JKK_ROLLER_MODE_UNKNOWN, 
 } jkkRollerMode_t;
 
-esp_err_t JkkLcdUiInit(void);
+esp_err_t JkkLcdUiInit(JkkRadio_t *radio);
 
 void JkkLcdStationTxt(char *stationName);
 

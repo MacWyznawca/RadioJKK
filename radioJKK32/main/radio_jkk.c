@@ -416,7 +416,7 @@ static void MainAppTask(void *arg){
 
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     ESP_LOGI(TAG, "Initialize I2C LCD display");
-    JkkLcdUiInit();
+    JkkLcdUiInit(&jkkRadio);
     JkkLcdVolumeInt(jkkRadio.player_volume);
 #endif
 
@@ -614,10 +614,10 @@ static void MainAppTask(void *arg){
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
                     jkkRollerMode_t rollerMode = JkkLcdRollerMode();
                     if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                        if(rollerMode == JKK_ROLLER_MODE_EQUALIZER_LIST){
-                            JkkLcdButtonSet(LV_KEY_ENTER, 1);
-                        }
-                        else {
+                      //  if(rollerMode == JKK_ROLLER_MODE_EQUALIZER_LIST){
+                      //      JkkLcdButtonSet(LV_KEY_ENTER, 1);
+                     //   }
+                     //   else {
                             char *lcdRollerOptions = heap_caps_calloc(jkkRadio.eq_count, 10, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
                             for (int i = 0; i < jkkRadio.eq_count; i++) {
                                 strncat(lcdRollerOptions, jkkRadio.eqPresets[i].name, 8);
@@ -626,7 +626,7 @@ static void MainAppTask(void *arg){
                             JkkLcdSetRollerOptions(lcdRollerOptions, jkkRadio.current_eq);
                             free(lcdRollerOptions);
                             JkkLcdShowRoller(true, jkkRadio.current_eq, JKK_ROLLER_MODE_EQUALIZER_LIST);
-                        }
+                      //  }
                     }
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
@@ -666,7 +666,7 @@ static void MainAppTask(void *arg){
             } else if ((int)msg.data == get_input_mode_id()) {
                 jkkRollerMode_t rollerMode = JkkLcdRollerMode();
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                    if(rollerMode == JKK_ROLLER_MODE_STATION_LIST) {
+                    if(rollerMode == JKK_ROLLER_MODE_STATION_LIST || rollerMode == JKK_ROLLER_MODE_EQUALIZER_LIST) {
                         JkkLcdButtonSet(LV_KEY_ENTER, 1);
                     }
                     else {
@@ -680,7 +680,7 @@ static void MainAppTask(void *arg){
                         JkkLcdShowRoller(true, jkkRadio.current_station, JKK_ROLLER_MODE_STATION_LIST);
                     }
                 }
-                else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED && rollerMode == JKK_ROLLER_MODE_STATION_LIST){
+                else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED && (rollerMode == JKK_ROLLER_MODE_STATION_LIST || rollerMode == JKK_ROLLER_MODE_EQUALIZER_LIST)){
                     JkkLcdButtonSet(LV_KEY_ESC, 1);
                     JkkLcdShowRoller(false, UINT8_MAX, JKK_ROLLER_MODE_HIDE);
                 }
@@ -689,7 +689,6 @@ static void MainAppTask(void *arg){
             } else if ((int)msg.data == get_input_volup_id()) {
                 jkkRollerMode_t rollerMode = JkkLcdRollerMode();
                 if(rollerMode > JKK_ROLLER_MODE_HIDE && rollerMode < JKK_ROLLER_MODE_UNKNOWN){
-                    ESP_LOGI(TAG, "[Right] touch tap event");
                     if(msg.cmd == PERIPH_BUTTON_RELEASE){
                         JkkLcdButtonSet(LV_KEY_RIGHT, 1);
                     }
@@ -700,7 +699,7 @@ static void MainAppTask(void *arg){
                 else {
                     ESP_LOGI(TAG, "[Vol+] touch tap event");
                     if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                        jkkRadio.player_volume += jkkRadio.player_volume < 40 ? 5 : 10;
+                        jkkRadio.player_volume += jkkRadio.player_volume < 40 ? (jkkRadio.player_volume < 5 ? 1 : 5) : 10;
                     }
                     else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
                         jkkRadio.player_volume += jkkRadio.player_volume < 40 ? 10 : 20;  
@@ -726,7 +725,7 @@ static void MainAppTask(void *arg){
                 else {
                     ESP_LOGI(TAG, "[Vol-] tap event");
                     if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                        jkkRadio.player_volume -= jkkRadio.player_volume < 40 ? 5 : 10;
+                        jkkRadio.player_volume -= jkkRadio.player_volume < 40 ? (jkkRadio.player_volume < 6 ? 1 : 5) : 10;
                         if (jkkRadio.player_volume < 0) {
                             jkkRadio.player_volume = 0;
                         }

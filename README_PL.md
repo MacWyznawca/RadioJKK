@@ -65,7 +65,7 @@ mySSID;myPassword
 
 Po restarcie ustawienia WiFi są zapisane w pamięci flash NVS i obecność karty SD w czytniku nie jest już konieczna.
   
-- Plik tekstowy (zwykły tekst) `stations.txt` z listą stacji radiowych (maksymalnie 20) w formacie csv (pola oddzielone średnikiem).  
+- Plik tekstowy (zwykły tekst) `stations.txt` z listą stacji radiowych (maksymalnie **40**) w formacie csv (pola oddzielone średnikiem).  
 `url stacji;krótka nazwa;opis;1 lub 0 (ulubione);typ` np.:  
 ```
 http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław - Radio Publiczne;0;5  
@@ -113,8 +113,8 @@ git submodule update --init --recursive
 ### Sterowanie w wersji z wyświetlaczem:
 - **Klawisz 4** [krótko] głośniej. Gdy wyświetlana jest lista stacji lub korektora - przewijanie przez listę.
 - **Klawisz 3** [krótko] ciszej. Gdy wyświetlana jest lista stacji lub korektora - przewijanie przez listę. [długo] wyciszenie.  
-- **Klawisz 2** [krótko] wywołaj menu korektora, naciśnij ponownie aby potwierdzić wybór. [długo] rozpocznij nagrywanie, naciśnij ponownie: zatrzymaj nagrywanie.  
-- **Klawisz 1** [krótko] wywołaj menu stacji radiowych, naciśnij ponownie aby potwierdzić wybór. [długo] wyjdź z listy bez zmiany stacji.  
+- **Klawisz 2** [krótko] wywołaj menu korektora, [długo] rozpocznij nagrywanie, naciśnij ponownie: zatrzymaj nagrywanie.  
+- **Klawisz 1** [krótko] wywołaj menu stacji radiowych. Gdy wyświetlany jest Roller (stacje lub equalizery) zatwierdzenie wyboru. [długo] wyjdź z listy bez zatwierdzania wyboru (ESC).  
 
 Wybrana stacja i equalizer są zapisywane w pamięci NVS i odtwarzane przy uruchomieniu. Zapis następuje po 10 sekundach od zmiany, aby ograniczyć ilóść zapisów.
     
