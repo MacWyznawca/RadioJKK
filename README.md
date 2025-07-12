@@ -98,7 +98,7 @@ Installation description [ESP-ADF](https://docs.espressif.com/projects/esp-adf/e
 ```bash
 git clone --recurse-submodules https://github.com/MacWyznawca/RadioJKK.git
 ```
-or
+In case of downloading as .zip or without submodules:
 ```bash
 git submodule update --init --recursive
 ```
@@ -119,6 +119,6 @@ git submodule update --init --recursive
 
 The selected station and equalizer are stored in NVS memory and restored at startup. The writing occurs 10 seconds after the change to limit the number of writes.
 
-In the event of an error when changing a radio station, it reverts to the previously reached one.
+If an error occurs while changing stations, it reverts to the previously played station.
     
 Audio files are saved in `rec/recording_date` folder with additional common text file containing audio file path, station name and recording start time.

@@ -98,7 +98,7 @@ Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/
 ```bash
 git clone --recurse-submodules https://github.com/MacWyznawca/RadioJKK.git
 ```
-lub
+W przypadku pobrania jako .zip lub bez submodułów:
 ```bash
 git submodule update --init --recursive
 ```
@@ -119,6 +119,6 @@ git submodule update --init --recursive
 
 Wybrana stacja i equalizer są zapisywane w pamięci NVS i odtwarzane przy uruchomieniu. Zapis następuje po 10 sekundach od zmiany, aby ograniczyć ilóść zapisów.
 
-W przypadku błędu przy zmianie stacji następuje powrót do poprzednio dotwarzanej.
+W przypadku błędu przy zmianie stacji, następuje powrót do poprzednio dotwarzanej.
     
 Pliki zapisów audio są zapisywane w folderze `rec/recording_date` z dodatkowym wspólnym plikiem tekstowym zawierającym ścieżkę pliku audio, nazwę stacji i czas rozpoczęcia nagrywania.

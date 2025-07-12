@@ -285,7 +285,7 @@ void JkkRadioSetStation(uint16_t station){
 
     if(station == jkkRadio.current_station) {
         ESP_LOGI(TAG, "No change in station, current station: %d", jkkRadio.current_station);
-       // return;
+        return;
     }
 
     if(jkkRadio.statusStation == JKK_RADIO_STATUS_CHANGING_STATION) {
@@ -337,15 +337,15 @@ void JkkRadioSetStation(uint16_t station){
             jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
             
             xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY); // Save ststion after JKK_RADIO_WAIT_TO_SAVE_TIME to limit the number of writes to NVS 
-        }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-        JkkLcdStationTxt(">tuning<");
-        if(JkkLcdRollerMode() == JKK_ROLLER_MODE_STATION_LIST) {
-            JkkLcdShowRoller(true, jkkRadio.current_station, JKK_ROLLER_MODE_STATION_LIST);
+            JkkLcdStationTxt(">tuning<");
+            if(JkkLcdRollerMode() == JKK_ROLLER_MODE_STATION_LIST) {
+                JkkLcdShowRoller(true, jkkRadio.current_station, JKK_ROLLER_MODE_STATION_LIST);
         }
 #else
      //   LedIndicatorPattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + jkkRadio.current_station + 1, 1);
 #endif
+        }
     }
 }
 
@@ -493,6 +493,14 @@ static void MainAppTask(void *arg){
          //   ESP_LOGW(TAG, "[ Uncnow ] fatfs_wr state: %d, inState: %d", sdState, inState);
             jkkRadio.audioSdWrite->is_recording = (sdState == AEL_STATE_RUNNING);
             jkkRadio.is_playing = (inState == AEL_STATE_RUNNING && outState == AEL_STATE_RUNNING && decState == AEL_STATE_RUNNING && vmState == AEL_STATE_RUNNING);
+            if(jkkRadio.is_playing && (jkkRadio.statusStation == JKK_RADIO_STATUS_ERROR || jkkRadio.statusStation == JKK_RADIO_STATUS_CHANGING_STATION)){
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+                if(jkkRadio.current_station >= 0 && jkkRadio.current_station < jkkRadio.station_count){
+                    JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
+                }
+#endif
+                jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
+            }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
             JkkTimeDisp();
 #endif

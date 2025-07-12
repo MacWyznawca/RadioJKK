@@ -344,7 +344,7 @@ void JkkLcdShowRoller(bool show, uint8_t idx, jkkRollerMode_t mode){
     if(mode > JKK_ROLLER_MODE_HIDE && mode < JKK_ROLLER_MODE_UNKNOWN) rollerMode = mode;
     JkkLcdShowObj(roller, show);
     
-    if(idx < lv_roller_get_option_count(roller) - 1) {
+    if(idx < lv_roller_get_option_count(roller)) {
         if(JkkLcdPortLock(0)){
             lv_roller_set_selected(roller, idx, LV_ANIM_ON);
             JkkLcdPortUnlock();
@@ -355,7 +355,7 @@ void JkkLcdShowRoller(bool show, uint8_t idx, jkkRollerMode_t mode){
 void JkkLcdSetRollerOptions(char *options, uint8_t idx){
     if(JkkLcdPortLock(0)){
         lv_roller_set_options(roller, options, LV_ROLLER_MODE_INFINITE);
-        if(idx < lv_roller_get_option_count(roller) - 1) {
+        if(idx < lv_roller_get_option_count(roller)) {
             lv_roller_set_selected(roller, idx, LV_ANIM_OFF);
         }
         JkkLcdPortUnlock();

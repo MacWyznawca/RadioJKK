@@ -26,6 +26,7 @@ radioJKK32/main/metadata_parser*
 radioJKK32/dependencies.lock
 
 radioJKK32/sdkconfig
+radioJKK32/sdkconfig\ *
 radioJKK32/sdkconfig.old
 
 # Doc build artifacts
