@@ -456,16 +456,16 @@ esp_err_t JkkLcdUiInit(JkkRadio_t *radio){
         lv_style_set_border_width(&style_rollLab, 6);
         lv_style_set_border_color(&style_rollLab, lv_color_white());
 
-        lv_color_t bg_color = lv_color_white();
-        lv_color_t fg_color = lv_color_black();
+        lv_color_t bg_color = lv_color_white(); // lv_color_white();
+        lv_color_t fg_color = lv_color_black(); // lv_color_black();
 
         qr = lv_qrcode_create(scr);
-        lv_qrcode_set_size(qr, 64);
+        lv_qrcode_set_size(qr, 68);
         lv_qrcode_set_dark_color(qr, fg_color);
         lv_qrcode_set_light_color(qr, bg_color);
-      //  lv_obj_set_style_border_color(qr, bg_color, 0);
-        lv_obj_set_style_border_width(qr, 0, 0);
-        lv_obj_align(qr, LV_ALIGN_LEFT_MID, 0, 0);
+        lv_obj_set_style_border_color(qr, bg_color, 0);
+        lv_obj_set_style_border_width(qr, 3, 0);
+        lv_obj_align(qr, LV_ALIGN_LEFT_MID, -4, 0);
         lv_obj_add_flag(qr, LV_OBJ_FLAG_HIDDEN);
 
         rolerLabel = lv_label_create(scr);

@@ -26,11 +26,11 @@ menu "RadioJKK Configuration"
 			
 			myssid;mypassword
 
-	config ESP_SMARTCONFIG
-		bool "Enable esp smartconfig"
+	config JKK_PROV_TRANSPORT_SOFTAP
+		bool "Enable ESP SoftAP"
 		default y
 		help
-			Select to enable SmartConfig for WiFi
+			Select to use ESP SoftAP prov application
 	
 	config JKK_RADIO_USING_EXT_KEYS
 		bool "Use External keys"

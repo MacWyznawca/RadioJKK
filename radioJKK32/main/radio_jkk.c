@@ -56,7 +56,10 @@
 #include "esp_netif.h"
 
 #include <wifi_provisioning/manager.h>
-#include <wifi_provisioning/scheme_ble.h>
+
+#ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
+#include <wifi_provisioning/scheme_softap.h>
+#endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
 
 #include "RawSplit/raw_split.h"
 #include "jkk_audio_main.h"
@@ -80,6 +83,7 @@ static const char *TAG = "RADIO";
 #define PROV_TRANSPORT_SOFTAP   "softap"
 #define PROV_TRANSPORT_BLE      "ble"
 #define PROV_POP_TXT            "jkk"
+#define PROV_DEV_NAME           "JKK"
 
 typedef union {
     struct {
@@ -131,7 +135,7 @@ static void SetTimeSync_cb(struct timeval *tv){
 
 static void get_device_service_name(char *service_name, size_t max){
     uint8_t eth_mac[6];
-    const char *ssid_prefix = "RadioJKK";
+    const char *ssid_prefix = PROV_DEV_NAME;
     esp_wifi_get_mac(WIFI_IF_STA, eth_mac);
     snprintf(service_name, max, "%s%02X",
              ssid_prefix, eth_mac[4]);
@@ -160,6 +164,9 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 strcpy(jkkRadio.wifiSSID, (const char *)wifi_sta_cfg->ssid);
                 strcpy(jkkRadio.wifiPassword, (const char *)wifi_sta_cfg->password);
                 ESP_LOGI(TAG, "Read WiFi settings: SSID: %s, Password: %s", (const char *)wifi_sta_cfg->ssid, (const char *)wifi_sta_cfg->password);
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+                JkkLcdQRcode(NULL);
+#endif
                 break;
             }
             case WIFI_PROV_CRED_FAIL: {
@@ -189,6 +196,18 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
                 esp_wifi_connect();
                 break;
+#ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
+            case WIFI_EVENT_AP_STACONNECTED:
+                ESP_LOGI(TAG, "SoftAP transport: Connected!");
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+                JkkLcdStationTxt("If you don't scan QR type: "PROV_POP_TXT);
+                JkkLcdQRcode(NULL);
+#endif
+                break;
+            case WIFI_EVENT_AP_STADISCONNECTED:
+                ESP_LOGI(TAG, "SoftAP transport: Disconnected!");
+                break;
+#endif
             default:
                 break;
         }
@@ -197,23 +216,6 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         ESP_LOGI(TAG, "Connected with IP Address:" IPSTR, IP2STR(&event->ip_info.ip));
         /* Signal main application to continue execution */
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
-
-    } else if (event_base == PROTOCOMM_TRANSPORT_BLE_EVENT) {
-        switch (event_id) {
-            case PROTOCOMM_TRANSPORT_BLE_CONNECTED:
-                ESP_LOGI(TAG, "BLE transport: Connected!");
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-                JkkLcdStationTxt("If you don't scan QR type: "PROV_POP_TXT);
-                JkkLcdQRcode(NULL);
-#endif
-                break;
-            case PROTOCOMM_TRANSPORT_BLE_DISCONNECTED:
-                ESP_LOGI(TAG, "BLE transport: Disconnected!");
-                break;
-            default:
-                break;
-        }
-
     } else if (event_base == PROTOCOMM_SECURITY_SESSION_EVENT) {
         switch (event_id) {
             case PROTOCOMM_SECURITY_SESSION_SETUP_OK:
@@ -568,12 +570,17 @@ static void MainAppTask(void *arg){
     vTaskDelay(pdMS_TO_TICKS(1000));
 
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(PROTOCOMM_TRANSPORT_BLE_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(PROTOCOMM_SECURITY_SESSION_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
-
+#ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
+    esp_netif_create_default_wifi_ap();
+#endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
     wifi_prov_mgr_config_t config = {
-        .scheme = wifi_prov_scheme_ble,
-        .scheme_event_handler = WIFI_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BTDM,
+#ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
+        .scheme = wifi_prov_scheme_softap,
+#endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
+#ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
+        .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE
+#endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
     };
 
     if(!wifiFromFlash) wifi_prov_mgr_reset_provisioning();
@@ -596,24 +603,17 @@ static void MainAppTask(void *arg){
 
         const char *service_key = NULL;
 
-        uint8_t custom_service_uuid[] = {
-            /* LSB <---------------------------------------
-             * ---------------------------------------> MSB */
-            0xb4, 0xdf, 0x5a, 0x1c, 0x3f, 0x6b, 0xf4, 0xbf,
-            0xea, 0x4a, 0x82, 0x03, 0x04, 0x90, 0x1a, 0x02,
-        };
-
-        wifi_prov_scheme_ble_set_service_uuid(custom_service_uuid);
-
         wifi_prov_mgr_endpoint_create("RadioJKK");
         wifi_prov_mgr_disable_auto_stop(1000);
 
-        #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-        JkkLcdStationTxt("Open ESP SodfAP app and scan QR or select BLE and search for RadioJKK...");
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
         char payload[256] = {0};
-        snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" \
-                    ",\"pop\":\"%s\",\"transport\":\"%s\"}",
-                    PROV_QR_VERSION, service_name, pop, PROV_TRANSPORT_BLE);
+#ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
+        snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" ",\"pop\":\"%s\",\"transport\":\"%s\"}",
+                    PROV_QR_VERSION, service_name, pop, PROV_TRANSPORT_SOFTAP);
+#endif 
+        JkkLcdStationTxt("Open ESP SodfAP app and scan QR or select SOFTAP and search for JKK...");
+        
         JkkLcdQRcode(payload);
 #endif
 

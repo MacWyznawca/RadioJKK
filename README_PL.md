@@ -7,6 +7,7 @@
 - Wybór ustawień korektora graficznego.  
 - Zapis wybranego equalizera i stacji radiowej.
 - Obsługa błędów odtwarzania.
+- Provisioning z użyciem aplikacji ESP SoftAP
   
 Praca w toku!  
   
@@ -56,6 +57,11 @@ esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin
 - `RadioJKK_LCD_board_keys_v0.bin` - wersja dla wyświetlacza SSD1306 128x64 i2c
 - `RadioJKK_LCD_ext_keys_v0.bin` - wersja dla wyświetlacza SSD1306 128x64 i2c z możliwością podłączenia przycisków zewnętrznych
 
+### Podłączenie do sieci WiFi przy pomocy aplikacji ESP SoftAp prov.
+
+- Po włączeniu nieskonfigurowanego radia, uruchom na smartfonie aplikacjię ESP SoftAP prov.
+- Zeskanuj za pomocą aplikacji kod QR i postępuj zgodnie z poleceniami aplikacji.
+- W przypadku braku ekranu lub problemów z zeskanowaniem kodu, poołącz smartfon do sieci WiFi o nazwie zaczynającej się od JKK. Następnie podaj PIN: jkk.
   
 ### Przygotowanie karty microSD:  
 - Format FAT32 (MS-DOS).  
