@@ -1,5 +1,6 @@
 menu "RadioJKK Configuration"
 
+
 	config WIFI_SSID
 		string "WiFi SSID"
 		default "myssid"
@@ -25,6 +26,12 @@ menu "RadioJKK Configuration"
 			
 			myssid;mypassword
 
+	config ESP_SMARTCONFIG
+		bool "Enable esp smartconfig"
+		default y
+		help
+			Select to enable SmartConfig for WiFi
+	
 	config JKK_RADIO_USING_EXT_KEYS
 		bool "Use External keys"
 		default n
@@ -35,7 +42,7 @@ menu "RadioJKK Configuration"
 
 	config JKK_RADIO_USING_I2C_LCD
 		bool "Use I2C LCD"
-		default n
+		default y
 		help
 			Choose y to use i2c LCD (OLED). Settings limited Keypad
 

@@ -21,6 +21,9 @@ extern "C" {
 #include "board.h"
 #include "audio_mem.h"
 #include "audio_sys.h"
+#include "wifi_service.h"
+#include "smart_config.h"
+
 #include "jkk_audio_main.h"
 #include "jkk_audio_sdwrite.h"
 
@@ -40,6 +43,8 @@ extern "C" {
 #define JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS (4) // Maximum number of embedded equalizers preset
 
 #define JKK_RADIO_WAIT_TO_SAVE_TIME (10 * 1000)
+
+#define WIFI_CONNECTED_BIT BIT0
 
 typedef enum  {
     JKK_RADIO_STATION_FAV = -2, // Favorite station
@@ -98,6 +103,7 @@ typedef struct JkkRadio_s {
     JkkAudioSdWrite_t *audioSdWrite;
     esp_periph_set_handle_t set;
     esp_periph_handle_t wifi_handle;
+    EventGroupHandle_t wifiFlag;
     audio_event_iface_handle_t evt;
     audio_board_handle_t board_handle;
     display_service_handle_t disp_serv;
@@ -112,6 +118,7 @@ typedef struct JkkRadio_s {
     toSave_e whatToSave;
     JkkRadioStations_t *jkkRadioStations; // Pointer to the array of radio stations
     bool radioStationChanged;
+    bool isProvisioned;
     JkkRadioEqualizer_t *eqPresets;
     char wifiSSID[32]; // WiFi SSID
     char wifiPassword[64]; // WiFi Password

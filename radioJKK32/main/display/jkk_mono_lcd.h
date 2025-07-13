@@ -45,6 +45,8 @@ void JkkLcdVolumeIndicatorCallback(int left_volume, int right_volume);
 
 void JkkLcdSetCpuLoadMode(int8_t mode);
 
+void JkkLcdQRcode(const char *url);
+
 #ifdef __cplusplus
 }
 #endif

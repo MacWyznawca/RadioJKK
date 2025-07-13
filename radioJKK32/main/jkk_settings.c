@@ -250,7 +250,10 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
     int sdStationCount = 0;
 
     if(nvsStationCount > 0) {
-        if(jkkRadio->jkkRadioStations) free(jkkRadio->jkkRadioStations);
+        if(jkkRadio->jkkRadioStations) {
+            free(jkkRadio->jkkRadioStations);
+            jkkRadio->jkkRadioStations = NULL;
+        }
         jkkRadio->jkkRadioStations = heap_caps_calloc(nvsStationCount, sizeof(JkkRadioStations_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (jkkRadio->jkkRadioStations == NULL) {
             ESP_LOGE(TAG, "Memory allocation failed for jkkRadio->jkkRadioStations");
@@ -450,7 +453,10 @@ esp_err_t JkkRadioEqSdRead(JkkRadio_t *jkkRadio) {
     int nvsEqCount = JkkRadioEqNvsCount();
     int sdEqCount = 0;
 
-    if(jkkRadio->eqPresets) free(jkkRadio->eqPresets);
+    if(jkkRadio->eqPresets) {
+        free(jkkRadio->eqPresets);
+        jkkRadio->eqPresets = NULL;
+    }
 
     if(nvsEqCount > 0) {
         jkkRadio->eqPresets = heap_caps_calloc(nvsEqCount, sizeof(JkkRadioEqualizer_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -508,8 +514,8 @@ esp_err_t JkkRadioEqSdRead(JkkRadio_t *jkkRadio) {
         sdEqCount = JKK_RADIO_MAX_EQ_PRESETS; // Limit to JKK_RADIO_MAX_EQ_PRESETS equalizers
     }
     if( nvsEqCount < sdEqCount) {
-        
-        jkkRadio->eqPresets = heap_caps_realloc(jkkRadio->eqPresets, sdEqCount * sizeof(JkkRadioEqualizer_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if(jkkRadio->eqPresets) jkkRadio->eqPresets = heap_caps_realloc(jkkRadio->eqPresets, sdEqCount * sizeof(JkkRadioEqualizer_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        else jkkRadio->eqPresets = heap_caps_calloc(sdEqCount, sizeof(JkkRadioEqualizer_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (jkkRadio->eqPresets == NULL) {
             ESP_LOGE(TAG, "Memory reallocation failed for jkkRadio->eqPresets");
             fclose(fptr);
