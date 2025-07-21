@@ -14,7 +14,7 @@ extern "C" {
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_system.h"
-#include "esp_peripherals.h"
+//#include "esp_peripherals.h"
 #include "audio_event_iface.h"
 #include "audio_pipeline.h"
 #include "audio_element.h"

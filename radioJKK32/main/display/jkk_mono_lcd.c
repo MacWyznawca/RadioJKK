@@ -409,7 +409,7 @@ esp_err_t JkkLcdUiInit(JkkRadio_t *radio){
 
         ipLabel = lv_label_create(scr);
         lv_obj_set_style_text_font(ipLabel, &lv_font_unscii_8, 0);
-        lv_obj_set_style_text_align(ipLabel, LV_TEXT_ALIGN_LEFT, 0);
+        lv_obj_set_style_text_align(ipLabel, LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_text(ipLabel, "");
         lv_obj_set_width(ipLabel, 128);
         lv_obj_align(ipLabel, LV_ALIGN_CENTER, 0, 0);

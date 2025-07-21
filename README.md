@@ -88,6 +88,11 @@ Installation description [ESP-ADF](https://docs.espressif.com/projects/esp-adf/e
    export ADF_PATH=/path/to/esp-adf
    export IDF_PATH=/path/to/esp-idf
    ```
+**Note**: for ESP-IDF 5.4.x and 5.5.x apply:
+   ```bash
+   cd $IDF_PATH 
+   git apply $ADF_PATH/idf_patches/idf_v5.4_freertos.patch
+   ```
 
 3. **Build and flash:**
    ```bash

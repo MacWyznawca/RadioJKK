@@ -33,7 +33,7 @@
 #include "audio_mem.h"
 #include "audio_sys.h"
 
-#include "esp_peripherals.h"
+//#include "esp_peripherals.h"
 #include "periph_wifi.h"
 #include "board.h"
 

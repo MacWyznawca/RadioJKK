@@ -10,5 +10,5 @@ idf_build_set_property(COMPILE_OPTIONS "-Wno-error=stringop-truncation;" APPEND)
 idf_build_set_property(COMPILE_OPTIONS "-Wno-error=format-overflow=;" APPEND)
 
 
-idf_build_set_property(MINIMAL_BUILD ON)
+# idf_build_set_property(MINIMAL_BUILD ON)
 project(RadioJKK)
