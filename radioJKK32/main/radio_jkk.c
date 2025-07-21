@@ -216,10 +216,6 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Connected with IP Address:" IPSTR, IP2STR(&event->ip_info.ip));
-        if(jkkRadio.runWebServer){
-            ESP_LOGI(TAG, "Start web server");
-            start_web_server();
-        }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
         char ipTxt[16];
         snprintf(ipTxt, sizeof(ipTxt), IPSTR, IP2STR(&event->ip_info.ip));
@@ -816,6 +812,11 @@ static void MainAppTask(void *arg){
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
     if(JkkAudioMainProcessState()) JkkLcdEqTxt(jkkRadio.eqPresets[jkkRadio.current_eq].name);
 #endif
+
+    if(jkkRadio.runWebServer){
+        ESP_LOGI(TAG, "Start web server");
+        start_web_server();
+    }
     
     while (1) {
         audio_event_iface_msg_t msg = {0};
