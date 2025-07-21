@@ -104,7 +104,9 @@ W przypadku skanowania kodu **QR** przejdź do punktu 3.
 3. **Zeskanuj kod QR** wyświetlany na OLED lub wpisz dane ręcznie. Pin: jkk
 4. **Wprowadź dane WiFi** swojej sieci
 
-Alternatywnie za poomocą karty SD:
+Uwaga: po pierwsze konfiguracji, jeżeli serwer WWW nie odpowiada, zalecam restart urządzenia.
+
+**Alternatywnie za poomocą karty SD**:
 
 Utwórz plik `settings.txt` z nazwą sieci WiFi i hasłem oddzielonymi średnikiem (jedna linia tekstu):  
 ```

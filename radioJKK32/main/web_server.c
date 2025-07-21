@@ -8,6 +8,8 @@
 #include "jkk_radio.h"
 
 static const char *TAG = "JKK_WEB";
+
+static bool webServerRunning = false;
 static EXT_RAM_BSS_ATTR httpd_handle_t server = NULL;
 
 static EXT_RAM_BSS_ATTR char station_list[(128 + 128 + 32) * JKK_RADIO_MAX_STATIONS] = "";
@@ -120,6 +122,10 @@ static void initialise_mdns(void)
 }
 
 void start_web_server(void) {
+    if(webServerRunning) {
+        ESP_LOGW(TAG, "Web server is already running");
+        return;
+    }
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 4096;
     config.server_port = 80;
@@ -138,6 +144,7 @@ void start_web_server(void) {
         ESP_LOGI(TAG, "Serwer WWW uruchomiony");
 
         initialise_mdns();
+        webServerRunning = true;
     }
 }
 
@@ -146,5 +153,6 @@ void stop_web_server(void) {
         httpd_stop(server);
         server = NULL;
         ESP_LOGI(TAG, "Serwer WWW zatrzymany");
+        webServerRunning = false;
     }
 }

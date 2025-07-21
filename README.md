@@ -104,6 +104,8 @@ For **QR code** scanning, proceed to step 3.
 3. **Scan QR code** displayed on OLED or enter data manually. PIN: jkk
 4. **Enter WiFi credentials** for your network
 
+Note: after the first configuration, if the web server is not responding, I recommend restarting the device.
+
 Alternatively using SD card:
 
 Create `settings.txt` file with WiFi network name and password separated by semicolon (one line of text):

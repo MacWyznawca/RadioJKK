@@ -29,6 +29,8 @@ CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=3584
 
 CONFIG_LOG_COLORS=y
 
+CONFIG_LWIP_MAX_SOCKETS=13
+
 # Override some defaults so BT stack is enabled and
 # Classic BT is enabled
 # CONFIG_BT_ENABLED=y
