@@ -33,6 +33,8 @@ void JkkLcdEqTxt(char *eqName);
 
 void JkkLcdTimeTxt(char *timeName);
 
+void JkkLcdIpTxt(char *ipTxt);
+
 void JkkLcdButtonSet(int keyCode, int8_t pressed);
 
 void JkkLcdShowRoller(bool show, uint8_t idx, jkkRollerMode_t mode);

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio JKK</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 1rem;
+            background: #f4f4f4;
+            font-size: 16px;
+        }
+
+        h1, h2 {
+            font-weight: bold;
+            text-align: center;
+        }
+
+        p {
+            text-align: center;
+        }
+
+        .station-current {
+            background-color: #9f9 !important;
+            font-weight: bold;
+        }
+
+        .station-selected {
+            background-color: #ffcccc !important;
+        }
+
+        .station-entry {
+            cursor: pointer;
+            margin: 4px 0;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .station-entry:hover {
+            background-color: rgb(207, 113, 113);
+        }
+
+        .station-entry:active {
+            background-color: rgb(251, 85, 85);
+        }
+
+        input[type="range"] {
+            width: 95%;
+            max-width: 800px;
+            margin: 0.5rem auto;
+            display: block;
+        }
+
+        table {
+            width: 95%;
+            max-width: 800px;
+            margin: 1rem auto;
+            border-collapse: collapse;
+            table-layout: auto;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+
+        th, td {
+            padding: 0.4rem;
+            border-bottom: 1px solid #ccc;
+            text-align: left;
+        }
+
+        th {
+            background: #980707;
+            color: white;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            background: #980707;
+            color: white;
+            z-index: 2;
+        }
+
+        tr {
+            background: #f0f0f0;
+        }
+
+        .table-container {
+            width: 95%;
+            max-width: 800px;
+            margin: 1rem auto;
+            overflow-y: auto;
+            max-height: 60vh; /* 300px*/
+            border-radius: 4px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        td button {
+            margin-left: 2px;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+        }
+
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 1em;
+            background: #fff;
+            border-radius: 1em;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 1em;
+            }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 0.3em;
+        }
+
+        .form-group input {
+            padding: 0.5em;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 0.5em;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .form-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5em;
+            justify-content: center;
+        }
+
+        .form-buttons button {
+            flex: 1 1 auto;
+            min-width: 100px;
+            padding: 0.6em;
+            font-size: 1em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 0.5em;
+            cursor: pointer;
+            transition: background 0.2s ease-in-out;
+        }
+
+        .form-buttons button:hover {
+            background-color: #0056b3;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.5em;
+            justify-content: flex-start;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                font-size: 18px;
+                margin: 0.5rem;
+            }
+
+            h1, h2 {
+                font-size: 1.5rem;
+            }
+
+            table {
+                width: 100%;
+                max-width: none;
+                display: table;
+                table-layout: auto;
+                margin: 1rem 0;
+            }
+
+            th, td {
+                font-size: 0.9rem;
+                min-width: 43px;
+                padding: 0.8rem;
+            }
+
+            input[type="range"] {
+                width: 100%;
+                max-width: none;
+                margin: 0.5rem 0;
+                padding: 0.5rem 0;
+            }
+
+            .station-entry {
+                padding: 0.5rem;
+                font-size: 1.1rem;
+            }
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            .station-entry {
+                -webkit-tap-highlight-color: transparent;
+            }
+            .station-entry:active {
+                background-color: transparent !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Radio JKK</h1>
+
+    <h2><span id="stationName">...</span></h2>
+
+    <div>
+        <input type="range" min="0" max="100" id="volume" />
+        <p>Volume: <span id="volPercent"><b>...</b></span></p>
+    </div>
+
+    <h2>Station list</h2>
+    <div class="table-container">
+        <table id="station-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="station-list"></tbody>
+        </table>
+    </div>
+    <!-- Formularz edycji i dodawania -->
+    <h2 id="form-title" style="margin-top: 2em;">Add station</h2>
+    <div class="form-container">
+    <div class="form-group">
+        <label for="station-name">Name</label>
+        <input id="station-name" type="text" maxlength="256" placeholder="Radio Example">
+    </div>
+    <div class="form-group">
+        <label for="station-desc">Description</label>
+        <input id="station-desc" type="text" maxlength="256" placeholder="Ulubiona stacja jazzowa...">
+    </div>
+    <div class="form-group">
+        <label for="station-url">URL</label>
+        <input id="station-url" type="text" maxlength="256" placeholder="http://example.com/stream.mp3">
+    </div>
+
+    <input type="hidden" id="station-id">
+    
+    <div class="form-buttons">
+        <button id="form-ok-button" onclick="submitEdit()">💾 Add station</button>
+        <button onclick="clearForm()">🧹 Clear form</button>
+    </div>
+    </div>
+    <script>
+        const stationMap = {};
+        let current_station = -1;
+        function refreshCurrentStationAndVolume() {
+            // Nazwa stacji
+            fetch("/status")
+                .then(r => r.text())
+                .then(t => {
+                    const [volx, idx, eqidx] = t.split(';'); // volume, station_id, eq_id
+                    const vol = parseInt(volx);
+                    let id = parseInt(idx);
+
+                    if (!isNaN(vol)) {
+                        document.getElementById("volume").value = vol;
+                        document.getElementById("volPercent").innerText = vol + "%";
+                    }
+                    
+                    if(id >= 0 ) {
+                        document.getElementById("stationName").innerText = stationMap[id].desc;
+                    }
+                    else if(id == -1) {
+                        document.getElementById("stationName").innerText = "error";
+                    }
+                    else {
+                        document.getElementById("stationName").innerText = "---";
+                    }
+                    current_station = id;
+                });
+
+            currenttRow(current_station);
+        }
+        function refreshStationList() {
+            fetch("/station_list")
+            .then(r => r.text())
+            .then(t => {
+                const rows = t.trim().split('\n');
+                const tbody = document.getElementById("station-list");
+                tbody.innerHTML = '';
+                for (const row of rows) {
+                    const [id, name, desc, url] = row.split(';');
+                    const tr = document.createElement('tr');
+                    tr.id = `row${parseInt(id)}`;
+                    tr.className = "station-entry";
+                    
+                    // Wiersz jako zwykła komórka <td>${parseInt(id) + 1}</td>
+                    tr.innerHTML = `
+                        <td>${name}</td>
+                        <td>${desc}</td>
+                        <td>
+                            <div class="button-group">
+                                <button onclick="populateForm(${id}, '${name}', '${desc}', '${url}'); event.stopPropagation();">✏️</button>
+                                <button onclick="confirmDelete(${id}); event.stopPropagation();">🗑️</button>
+                            </div>
+                        </td>
+                    `;
+                    tr.onclick = () => {
+                        fetch("/station_select", {
+                            method: "POST",
+                            body: id
+                        });
+                        idNr = parseInt(id);
+                        highlightRow(`row${idNr}`);
+                        document.getElementById("stationName").innerText = stationMap[idNr].desc;
+                    };
+                    tbody.appendChild(tr);
+                    stationMap[id] = {
+                        name: name,
+                        desc: desc,
+                        url: url
+                    };
+                }
+
+                currenttRow(current_station);
+
+                const opis = stationMap[3].desc;
+                console.log(opis);
+            });
+        }
+
+
+        function clearHighlights() {
+            document.querySelectorAll('.station-entry').forEach(row => {
+                row.classList.remove('station-current');
+                row.classList.remove('station-selected');
+            });
+        }
+
+        function currenttRow(id) {
+            console.log("currenttRow", id);
+            const row = document.getElementById(`row${parseInt(id)}`);
+            if (row) {
+                clearHighlights();
+                row.classList.add('station-current');
+            }
+        }
+
+        function highlightRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.classList.add('station-selected');
+            }
+        }
+
+        let previousVolume = 0
+        const slider = document.getElementById("volume");
+        slider.addEventListener("input", function() {
+            let vol = parseInt(this.value);
+          //  if (Math.abs(vol - previousVolume) < 3 && vol > 5 && previousVolume > 5) {
+          //      return;
+          //  }
+            fetch("/volume", {
+                method: "POST",
+                body: vol
+            });
+            previousVolume = vol;
+            document.getElementById("volPercent").innerText = vol + "%";
+        });
+
+        async function editStation(dataCsv) {
+            await fetch('/station_edit', {
+                method: 'POST',
+                body: dataCsv
+            });
+            refreshStationList();
+        }
+
+        async function deleteStation(id) {
+            await fetch('/station_delete', {
+                method: 'POST',
+                body: id
+            });
+            refreshStationList();
+        }
+
+        function populateForm(id, name, desc, url) {
+            document.getElementById("station-id").value = id;
+            document.getElementById("station-name").value = name;
+            document.getElementById("station-desc").value = desc;
+            document.getElementById("station-url").value = url;
+            document.getElementById("form-title").innerText = "Edit station";
+            document.getElementById("form-ok-button").innerText = "💾 Save changes";
+        }
+
+        function submitEdit() {
+            let id   = document.getElementById("station-id").value;
+            const name = document.getElementById("station-name").value.trim();
+            let desc = document.getElementById("station-desc").value.trim();
+            const url  = document.getElementById("station-url").value.trim();
+            if (!name || !url) {
+                alert("Name and URL are required");
+                return;
+            }
+            if (!desc) {
+                desc = name; // Jeśli opis jest pusty, użyj nazwy jako opisu
+            }
+            if(!id || isNaN(parseInt(id))) {
+                id = '-1';
+            }
+            editStation(`${id};${name};${desc};${url}`);
+            console.log(`Edycja stacji: ${id}, ${name}, ${desc}, ${url}`);
+            clearForm();
+        }
+
+        function clearForm() {
+            document.getElementById("station-id").value = "";
+            document.getElementById("station-name").value = "";
+            document.getElementById("station-desc").value = "";
+            document.getElementById("station-url").value = "";
+            document.getElementById("form-title").innerText = "Dodaj stację";
+            document.getElementById("form-ok-button").innerText = "💾 Dodaj";
+        }
+
+        function confirmDelete(id) {
+            if (confirm("Are you sure you want to delete this radio station?")) {
+                deleteStation(id);
+                clearForm();
+            }
+        }
+
+        setInterval(() => {
+            refreshCurrentStationAndVolume();
+        }, 2000);
+
+        setInterval(() => {
+            refreshStationList();
+        }, 15000); // np. co 15s
+
+        refreshStationList();
+        refreshCurrentStationAndVolume();
+    </script>
+</body>
+</html>

@@ -22,6 +22,8 @@
 
 #include "jkk_settings.h"
 
+#define JKK_RADIO_WEB_SERVER_OFF "wwwoff"
+
 static const char *TAG = "JKK_SETTI";
 
 extern const char stations_start[] asm("_binary_stations_txt_start"); 
@@ -83,6 +85,8 @@ esp_err_t JkkRadioSettingsRead(JkkRadio_t *jkkRadio) {
 
     ESP_LOGI(TAG, "WiFi settings from NVS: SSID: %s, Password: %s", jkkRadio->wifiSSID, jkkRadio->wifiPassword);
 
+    jkkRadio->runWebServer = true;
+
     fptr = fopen("/sdcard/settings.txt", "r");
     if (fptr == NULL) {
         ESP_LOGE(TAG, "Error opening file: /sdcard/settings.txt");
@@ -92,6 +96,7 @@ esp_err_t JkkRadioSettingsRead(JkkRadio_t *jkkRadio) {
     fgets(lineStr, sizeof(lineStr), fptr);
     char *ssid = strtok(lineStr, ";\n");
     char *pass = strtok(NULL, ";\n");
+    char *webServer = strtok(NULL, ";\n");
     if (ssid && pass) {
         if(strcmp(ssid, jkkRadio->wifiSSID)){
             JkkNvsBlobSet("wifi_ssid", JKK_RADIO_NVS_NAMESPACE, ssid, strlen(ssid) + 1);
@@ -102,6 +107,12 @@ esp_err_t JkkRadioSettingsRead(JkkRadio_t *jkkRadio) {
         strcpy(jkkRadio->wifiSSID, ssid);
         strcpy(jkkRadio->wifiPassword, pass);
         ESP_LOGI(TAG, "Read WiFi settings: SSID: %s, Password: %s", ssid, pass);
+    }
+    if(webServer) {
+        if(strcmp(webServer, JKK_RADIO_WEB_SERVER_OFF) == 0){
+            jkkRadio->runWebServer = false;
+        }
+        ESP_LOGI(TAG, "Read Web Server: %s", webServer);
     }
     fclose(fptr);
     ESP_LOGI(TAG, "WiFi settings: SSID: %s, Password: %s", jkkRadio->wifiSSID, jkkRadio->wifiPassword);
@@ -123,6 +134,7 @@ static void JkkRadioStationEmbeddedRead(JkkRadio_t *jkkRadio, char const *statio
         jkkRadio->jkkRadioStations[0].audioDes[0] = '\0'; // Default to empty audio description
         ESP_LOGI(TAG, "No stations provided, initialized with default station: %s", jkkRadio->jkkRadioStations[0].nameLong);
         jkkRadio->station_count = 1; // Set station count to 1 for the default station
+        JkkRadioListForWWW();
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
         JkkLcdReloadRoller(jkkRadio);
 #endif
@@ -212,7 +224,7 @@ static void JkkRadioStationEmbeddedRead(JkkRadio_t *jkkRadio, char const *statio
     }
     free(stations); // Free the temporary string buffer
     jkkRadio->station_count = index;
-
+    JkkRadioListForWWW();
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdReloadRoller(jkkRadio);
 #endif
@@ -235,7 +247,7 @@ static int JkkRadioStationNvsCount(void){
         if(ret == ESP_OK && type == NVS_TYPE_BLOB) {
             stationCount++;
         } else if (ret == ESP_ERR_NVS_NOT_FOUND) {
-            break; // No more stations found
+            continue; // No more stations found
         }
     }
 
@@ -259,18 +271,24 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             ESP_LOGE(TAG, "Memory allocation failed for jkkRadio->jkkRadioStations");
             return ESP_ERR_NO_MEM;
         }
-        for(uint8_t i = 0; i < nvsStationCount; i++) {
+        nvsStationCount = 0; // Reset count to fill from NVS
+        for(uint8_t i = 0; i < JKK_RADIO_MAX_STATIONS; i++) {
             char key[16] = {0};
             sprintf(key, JKK_RADIO_NVS_STATION_KEY, i);
-            JkkNvsBlobGet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio->jkkRadioStations[i], NULL); 
-            ESP_LOGI(TAG, "Station from NVS %d: URI=%s, NameShort=%s, NameLong=%s, Favorite=%s, Type=%d, Audio desc.=%s",
-                     i, jkkRadio->jkkRadioStations[i].uri,
-                     jkkRadio->jkkRadioStations[i].nameShort,
-                     jkkRadio->jkkRadioStations[i].nameLong,
-                     jkkRadio->jkkRadioStations[i].is_favorite ? "true" : "false",
-                     jkkRadio->jkkRadioStations[i].type,
-                     jkkRadio->jkkRadioStations[i].audioDes);
+            if(JkkNvsBlobGet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio->jkkRadioStations[nvsStationCount], NULL) == ESP_OK) {
+                ESP_LOGI(TAG, "Station from NVS %d: URI=%s, NameShort=%s, NameLong=%s, Favorite=%s, Type=%d, Audio desc.=%s",
+                     i, jkkRadio->jkkRadioStations[nvsStationCount].uri,
+                     jkkRadio->jkkRadioStations[nvsStationCount].nameShort,
+                     jkkRadio->jkkRadioStations[nvsStationCount].nameLong,
+                     jkkRadio->jkkRadioStations[nvsStationCount].is_favorite ? "true" : "false",
+                     jkkRadio->jkkRadioStations[nvsStationCount].type,
+                     jkkRadio->jkkRadioStations[nvsStationCount].audioDes);
+                nvsStationCount++;
+            } else {
+                continue; // No more stations found
+            }
         }
+        
         jkkRadio->station_count = nvsStationCount;
     }
 
@@ -281,6 +299,7 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             ESP_LOGW(TAG, "No stations found in NVS and /sdcard/stations.txt does not exist, using embedded stations");
             JkkRadioStationEmbeddedRead(jkkRadio, stations_start);
         }
+        JkkRadioListForWWW();
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
         JkkLcdReloadRoller(jkkRadio);
 #endif
@@ -330,7 +349,7 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             char key[16] = {0};
             sprintf(key, JKK_RADIO_NVS_STATION_KEY, index);
             
-            if(strcmp(uri, jkkRadio->jkkRadioStations[index].uri) || strcmp(nameShort, jkkRadio->jkkRadioStations[index].nameShort) || strcmp(nameLong, jkkRadio->jkkRadioStations[index].nameLong) || jkkRadio->jkkRadioStations[index].is_favorite != (strcmp(is_favorite, "1") == 0)) {
+            if(jkkRadio->jkkRadioStations[index].addFrom != JKK_RADIO_ADD_FROM_WEB && (strcmp(uri, jkkRadio->jkkRadioStations[index].uri) || strcmp(nameShort, jkkRadio->jkkRadioStations[index].nameShort) || strcmp(nameLong, jkkRadio->jkkRadioStations[index].nameLong) || jkkRadio->jkkRadioStations[index].is_favorite != (strcmp(is_favorite, "1") == 0))) {
                 // If the station is different from the one in NVS, update it
                 jkkRadio->radioStationChanged = true;
 
@@ -362,6 +381,7 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
                 } else {
                     jkkRadio->jkkRadioStations[index].audioDes[0] = '\0'; // Default to empty if not provided
                 }
+                jkkRadio->jkkRadioStations[index].addFrom = JKK_RADIO_ADD_FROM_SD; // Mark as added from SD card
                 JkkNvsBlobSet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio->jkkRadioStations[index], sizeof(JkkRadioStations_t)); // Save each station to NVS
                 ESP_LOGI(TAG, "Updated station %d from file: URI=%s, NameShort=%s, NameLong=%s, Favorite=%s, Type=%d, Audio desc.=%s",
                          index,
@@ -385,20 +405,17 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             char key[16] = {0};
             sprintf(key, JKK_RADIO_NVS_STATION_KEY, i);
             ESP_LOGI(TAG, "Removing station %d from NVS: %s", i, key);
-            JkkNvsErase(key, JKK_RADIO_NVS_NAMESPACE);
+            if(jkkRadio->jkkRadioStations[index].nameShort[0] != '\0' && jkkRadio->jkkRadioStations[index].uri[0] != '\0') {
+                if(jkkRadio->jkkRadioStations[index].addFrom != JKK_RADIO_ADD_FROM_WEB){
+                    JkkNvsErase(key, JKK_RADIO_NVS_NAMESPACE);
+                }
+                else {
+                    index++;
+                }
+            }
         }
     }
-/*  if(index < nvsStationCount) {
-        // If there are more stations in the file than in NVS, fill the rest with empty stations
-        for(int i = index; i < sdStationCount; i++) {
-            jkkRadio->jkkRadioStations[i].uri[0] = '\0';
-            jkkRadio->jkkRadioStations[i].nameShort[0] = '\0';
-            jkkRadio->jkkRadioStations[i].nameLong[0] = '\0';
-            jkkRadio->jkkRadioStations[i].is_favorite = false;
-            jkkRadio->jkkRadioStations[i].type = JKK_RADIO_UNKNOWN;
-            jkkRadio->jkkRadioStations[i].audioDes[0] = '\0';
-        }
-    } */
+
     fclose(fptr);
     ESP_LOGI(TAG, "Loaded %d stations from /sdcard/stations.txt", index);
 
@@ -414,7 +431,7 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
                  jkkRadio->jkkRadioStations[i].audioDes);   
     }
     jkkRadio->station_count = index;
-
+    JkkRadioListForWWW();
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdReloadRoller(jkkRadio);
 #endif
@@ -565,12 +582,12 @@ esp_err_t JkkRadioEqSdRead(JkkRadio_t *jkkRadio) {
         for(int i = index; i < nvsEqCount; i++) {
             char key[16] = {0};
             sprintf(key, JKK_RADIO_NVS_EQUALIZER_KEY, i);
-            ESP_LOGI(TAG, "Removing station %d from NVS: %s", i, key);
+            ESP_LOGI(TAG, "Removing eq %d from NVS: %s", i, key);
             JkkNvsErase(key, JKK_RADIO_NVS_EQ_NAMESPACE);
         }
     }
     fclose(fptr);
-    ESP_LOGI(TAG, "Loaded %d stations from /sdcard/stations.txt", index);
+    ESP_LOGI(TAG, "Loaded %d stations from /sdcard/eq.txt", index);
 
     ESP_LOGI(TAG, "Loaded equalizers:");
     for (int i = 0; i < index; i++) {

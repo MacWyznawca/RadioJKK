@@ -5,6 +5,7 @@ set(srcs  "radio_jkk.c"
                     "jkk_audio_sdwrite.c"
                     "jkk_nvs.c"
                     "jkk_settings.c"
+                    "web_server.c"
                    )
 
 if(CONFIG_JKK_RADIO_USING_I2C_LCD)
@@ -12,6 +13,6 @@ if(CONFIG_JKK_RADIO_USING_I2C_LCD)
 endif()
 
 idf_component_register(SRCS "${srcs}"
-                    EMBED_TXTFILES ../stations.txt)
+                    EMBED_TXTFILES "../stations.txt" "../index.html")
 
 set(COMPONENT_ADD_INCLUDEDIRS .)

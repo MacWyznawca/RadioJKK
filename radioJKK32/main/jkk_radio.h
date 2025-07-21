@@ -46,6 +46,13 @@ extern "C" {
 
 #define WIFI_CONNECTED_BIT BIT0
 
+#ifndef MIN
+#define MIN(a, b) (((a)<(b))?(a):(b))
+#endif /* MIN */
+#ifndef MAX
+#define MAX(a, b) (((a)>(b))?(a):(b))
+#endif  /* MAX */
+
 typedef enum  {
     JKK_RADIO_STATION_FAV = -2, // Favorite station
     JKK_RADIO_STATION_PREV = -1, // Previous station
@@ -96,6 +103,12 @@ typedef struct JkkRadioStations_s {
         JKK_RADIO_INTERNATIONAL, // International station
         JKK_RADIO_OTHER // Other type of station
     } type; // Type of the radio station
+    enum {
+        JKK_RADIO_ADD_FROM_SD = 0, // Added from SD card
+        JKK_RADIO_ADD_FROM_EMBEDDED, // Added from embedded list
+        JKK_RADIO_ADD_FROM_WEB, // Added from web
+        JKK_RADIO_ADD_FROM_UNKNOWN, // Unknown source
+    } addFrom;
 } JkkRadioStations_t;
 
 typedef struct JkkRadio_s {
@@ -119,6 +132,7 @@ typedef struct JkkRadio_s {
     JkkRadioStations_t *jkkRadioStations; // Pointer to the array of radio stations
     bool radioStationChanged;
     bool isProvisioned;
+    bool runWebServer;
     JkkRadioEqualizer_t *eqPresets;
     char wifiSSID[32]; // WiFi SSID
     char wifiPassword[64]; // WiFi Password
@@ -126,6 +140,10 @@ typedef struct JkkRadio_s {
 } JkkRadio_t;
 
 void JkkRadioSetStation(uint16_t station);
+void JkkRadioSetVolume(uint8_t vol);
+void JkkRadioDeleteStation(uint16_t station);
+void JkkRadioEditStation(char *csvTxt);
+void JkkRadioListForWWW(void);
 
 esp_err_t JkkRadioSendMessageToMain(int mess, int command);
 

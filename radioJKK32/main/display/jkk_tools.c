@@ -13,7 +13,10 @@ static const char *TAG = "JKK TOOLS";
 
 void Utf8ToAsciiPL(const char *input, char *output) {
     const unsigned char *src = (const unsigned char *)input;
-    char *dst = output;
+    char *dst = (char *)input;
+    if(output != NULL) {
+        dst = output;
+    }
 
     while (*src) {
         unsigned char c1 = src[0];

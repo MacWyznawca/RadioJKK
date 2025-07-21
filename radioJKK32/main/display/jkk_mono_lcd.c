@@ -48,6 +48,7 @@ static lv_obj_t *timeLabel = NULL;
 static lv_obj_t *rolerLabel = NULL;
 static lv_obj_t *lineVMeter = NULL;
 static lv_obj_t *lineVolume = NULL;
+static lv_obj_t *ipLabel = NULL;
 static lv_obj_t *qr = NULL;
 
 static lv_obj_t *roller = NULL;
@@ -55,7 +56,6 @@ static lv_group_t *rollGroup;
 static jkkRollerMode_t rollerMode = JKK_ROLLER_MODE_HIDE;
 
 static lv_timer_t *rollerTimer = NULL;
-// static lv_timer_t *stationScrollTimer = NULL;
 
 static lv_indev_t *indev_encoder = NULL;
 static uint32_t key = 0;
@@ -63,11 +63,6 @@ static int8_t keyPressed = -1;
 
 static lv_point_precise_t lineVM_points[2] =  {{.x = 63, .y = 0}, {.x = 64, .y = 0}};
 static lv_point_precise_t lineVol_points[2] =  {{.x = 63, .y = 0}, {.x = 64, .y = 0}};
-
-//void ScrollLabTimerHandler(lv_timer_t * timer){
-//    lv_timer_pause(timer);
-//    lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_SCROLL_CIRCULAR);
-//}
 
 void RollerHideTimerHandler(lv_timer_t * timer){
     lv_timer_pause(timer);
@@ -143,6 +138,17 @@ void JkkLcdEqTxt(char *eqName) {
     }
     if(JkkLcdPortLock(0)){
         lv_label_set_text(eqLabel, eqName);
+        JkkLcdPortUnlock();
+    }
+}
+
+void JkkLcdIpTxt(char *ipTxt) {
+    if(ipLabel == NULL) {
+        ESP_LOGE(TAG, "Display not initialized");
+        return;
+    }
+    if(JkkLcdPortLock(0)){
+        lv_label_set_text(ipLabel, ipTxt);
         JkkLcdPortUnlock();
     }
 }
@@ -354,6 +360,7 @@ void JkkLcdShowRoller(bool show, uint8_t idx, jkkRollerMode_t mode){
 }
 
 void JkkLcdSetRollerOptions(char *options, uint8_t idx){
+    Utf8ToAsciiPL(options, NULL);
     if(JkkLcdPortLock(0)){
         lv_roller_set_options(roller, options, LV_ROLLER_MODE_INFINITE);
         if(idx < lv_roller_get_option_count(roller)) {
@@ -399,6 +406,13 @@ esp_err_t JkkLcdUiInit(JkkRadio_t *radio){
         lv_label_set_text(radioLabel, "Radio JKK32 - Multifunction Internet Radio Player");
         lv_obj_set_width(radioLabel, lv_display_get_horizontal_resolution(display));
         lv_obj_align(radioLabel, LV_ALIGN_TOP_MID, 0, 0);
+
+        ipLabel = lv_label_create(scr);
+        lv_obj_set_style_text_font(ipLabel, &lv_font_unscii_8, 0);
+        lv_obj_set_style_text_align(ipLabel, LV_TEXT_ALIGN_LEFT, 0);
+        lv_label_set_text(ipLabel, "");
+        lv_obj_set_width(ipLabel, 128);
+        lv_obj_align(ipLabel, LV_ALIGN_CENTER, 0, 0);
 
         volLabel = lv_label_create(scr);
         lv_obj_set_style_text_font(volLabel, &lv_font_unscii_8, 0);
