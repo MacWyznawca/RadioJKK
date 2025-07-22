@@ -34,6 +34,11 @@
 - **Klawiatura GPIO** z obsługą długich naciśnięć
 - **Kody QR** (opcja z wyświetlaczem) dla łatwej konfiguracji WiFi
 
+### 💾 Zapis bieżących ustawień
+- **Stacja, equalizer i głośność** są zapisywanie i odtwarzane po uruchomieniu/restarcie
+- **Bezpieczeństow pamięci flash** - dane są zapisywane dopiero 10 sekund po zmianie, na wypadek kolejnych częstych zmian
+- **Przewidywana trwałość Flash** - przy bardzo intensywnym (kilkaset zmian na dobę) użytkowaniu minimum 15 lat.
+
 ### 🔗 Łączność
 - **WiFi** z automatycznym provisioningiem przez aplikację ESP SoftAP Prov
 - **mDNS/Bonjour, NetBIOS** dla łatwego odnajdywania w sieci
@@ -78,7 +83,7 @@ OLED SSD1306 128x64 z magistralą I2C. Dobrze, jeśli ma wbudowane 4 przyciski l
 1. **Klonowanie repozytorium:**
    ```bash
    git clone --recurse-submodules https://github.com/MacWyznawca/RadioJKK.git
-   cd RadioJKK32
+   cd radioJKK32
    ```
 
 2. **Konfiguracja ESP-IDF i ESP-ADF:**
@@ -100,7 +105,7 @@ Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/
 4. **Użycie prekompilowanego pliku:**  
    Wgraj dowolnym narzędziem do flashowania ESP32 wybrany plik z folderu `bin` pod adres 0x0, np. komendą:   
    ```bash
-   esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin
+   esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v1.bin
    ```
 
 ## 📋 Konfiguracja

@@ -349,7 +349,7 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             char key[16] = {0};
             sprintf(key, JKK_RADIO_NVS_STATION_KEY, index);
             
-            if(jkkRadio->jkkRadioStations[index].addFrom != JKK_RADIO_ADD_FROM_WEB && (strcmp(uri, jkkRadio->jkkRadioStations[index].uri) || strcmp(nameShort, jkkRadio->jkkRadioStations[index].nameShort) || strcmp(nameLong, jkkRadio->jkkRadioStations[index].nameLong) || jkkRadio->jkkRadioStations[index].is_favorite != (strcmp(is_favorite, "1") == 0))) {
+            if(jkkRadio->jkkRadioStations[index].addFrom != JKK_RADIO_ADD_FROM_WEB && (strcmp(uri, jkkRadio->jkkRadioStations[index].uri) || (nameShort && strcmp(nameShort, jkkRadio->jkkRadioStations[index].nameShort)) || (nameLong && strcmp(nameLong, jkkRadio->jkkRadioStations[index].nameLong)) || jkkRadio->jkkRadioStations[index].is_favorite != (is_favorite && strcmp(is_favorite, "1") == 0))) {
                 // If the station is different from the one in NVS, update it
                 jkkRadio->radioStationChanged = true;
 

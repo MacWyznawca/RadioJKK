@@ -34,6 +34,11 @@
 - **GPIO keypad** with long press support
 - **QR codes** (display option) for easy WiFi configuration
 
+### 💾 Current Settings Storage
+- **Station, equalizer and volume** are saved and restored after startup/restart
+- **Flash memory protection** - data is saved only 10 seconds after a change, in case of frequent subsequent changes
+- **Predicted Flash durability** - with very intensive use (several hundred changes per day) minimum 15 years.
+
 ### 🔗 Connectivity
 - **WiFi** with automatic provisioning via ESP SoftAP Prov app
 - **mDNS/Bonjour, NetBIOS** for easy network discovery
@@ -78,7 +83,7 @@ OLED SSD1306 128x64 with I2C bus. Ideally with built-in 4 buttons or provide sep
 1. **Clone repository:**
    ```bash
    git clone --recurse-submodules https://github.com/MacWyznawca/RadioJKK.git
-   cd RadioJKK32
+   cd radioJKK32
    ```
 
 2. **ESP-IDF and ESP-ADF configuration:**
@@ -100,7 +105,7 @@ OLED SSD1306 128x64 with I2C bus. Ideally with built-in 4 buttons or provide sep
 4. **Using precompiled binary:**  
    Flash any ESP32 flashing tool with selected file from `bin` folder at address 0x0. e.g., with command:   
    ```bash
-   esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin
+   esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v1.bin
    ```
 
 ## 📋 Configuration

@@ -248,6 +248,7 @@ void JkkRadioSetVolume(uint8_t vol){
     JkkLcdVolumeInt(jkkRadio.player_volume);
 #endif
     audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
+    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
 }
 
 void JkkRadioDeleteStation(uint16_t station){
@@ -279,7 +280,6 @@ void JkkRadioDeleteStation(uint16_t station){
     } else {
         ESP_LOGI(TAG, "Station %d deleted successfully. New station count: %d", index, jkkRadio.station_count);
     }
-    jkkRadio.radioStationChanged = true;
     JkkRadioListForWWW(); // Update the list for web server
 }
 
@@ -336,7 +336,6 @@ void JkkRadioEditStation(char *csvTxt){
                  jkkRadio.jkkRadioStations[id].uri, 
                  jkkRadio.jkkRadioStations[id].nameShort,
                  jkkRadio.jkkRadioStations[id].nameLong);
-        jkkRadio.radioStationChanged = true;
         JkkRadioListForWWW(); // Update the list for web server
     } else {
         ESP_LOGE(TAG, "Invalid station ID");
@@ -591,7 +590,7 @@ void JkkRadioSetStation(uint16_t station){
 
 static void SaveTimerHandle(TimerHandle_t xTimer){
     if(xTimer == NULL) return;
-    ESP_LOGI(TAG, "SaveTimerHandle: %d", jkkRadio.whatToSave);
+    ESP_LOGI(TAG, "SaveTimerHandle");
 
     if(jkkRadio.whatToSave == JKK_RADIO_TO_SAVE_CURRENT_STATION) {
         jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
@@ -617,20 +616,11 @@ static void MainAppTask(void *arg){
     jkkRadio.current_station = 0;
     jkkRadio.current_eq = 0;
 
-    jkkRadio.player_volume = 1;
-
     ESP_LOGI(TAG, "Start audio codec chip");
     jkkRadio.board_handle = audio_board_init();
+    audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
     audio_hal_ctrl_codec(jkkRadio.board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
 
-    audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
-    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, 1);
-
-    JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
-
-   // jkkRadio.disp_serv = audio_board_led_init(); LED making some but big problems
-   // ESP_LOGI(TAG, "Initialize LED: %p", jkkRadio.disp_serv);
-  //  ESP_ERROR_CHECK(esp_event_loop_create_default());
     wifi_event_group = xEventGroupCreate();
 
     jkkRadio.waitTimer_h = xTimerCreate("saveTimer", (JKK_RADIO_WAIT_TO_SAVE_TIME / portTICK_PERIOD_MS), pdFALSE, NULL, SaveTimerHandle);
@@ -638,7 +628,6 @@ static void MainAppTask(void *arg){
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     ESP_LOGI(TAG, "Initialize I2C LCD display");
     JkkLcdUiInit(&jkkRadio);
-    JkkLcdVolumeInt(jkkRadio.player_volume);
 #endif
 
     jkkRadio.audioMain = JkkAudioMain_init(3, 1, 1, 1); // in/out type: 3 - HTTP, 1 - I2S; processing type: 1 - EQUALIZER, 1 - RAW_SPLIT; split nr
@@ -657,17 +646,26 @@ static void MainAppTask(void *arg){
 
     if(jkkRadio.radioStationChanged){ // If any station from lisy changed, reset saved station and other data
         JkkNvs64_set("stateStEq", JKK_RADIO_NVS_NAMESPACE, 0);
+        jkkRadio.player_volume = 10;
     }
     else {
         JkkRadioDataToSave_t toRead = {0};
-        JkkNvs64_get("stateStEq", JKK_RADIO_NVS_NAMESPACE, &toRead.all64);
-        jkkRadio.current_eq = toRead.current_eq < jkkRadio.eq_count ? toRead.current_eq : 0;
-        jkkRadio.prev_station = jkkRadio.current_station = toRead.current_station < jkkRadio.station_count ? toRead.current_station : 0;
+        if(JkkNvs64_get("stateStEq", JKK_RADIO_NVS_NAMESPACE, &toRead.all64) == ESP_OK){
+            jkkRadio.current_eq = toRead.current_eq < jkkRadio.eq_count ? toRead.current_eq : 0;
+            jkkRadio.prev_station = jkkRadio.current_station = toRead.current_station < jkkRadio.station_count ? toRead.current_station : 0;
+            jkkRadio.player_volume = toRead.current_volume <= 100 ? toRead.current_volume : 10; // Volume should be in range 0-100
+        }
+        else {
+            ESP_LOGW(TAG, "No saved state found, using defaults");
+            jkkRadio.player_volume = 10;
+        }
     }
-
+    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
+    JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
 
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdStationTxt(">>>>>>WiFi");
+    JkkLcdVolumeInt(jkkRadio.player_volume);
 #endif
 
     ESP_LOGI(TAG, "Start and wait for Wi-Fi network");
@@ -1056,6 +1054,7 @@ static void MainAppTask(void *arg){
                         jkkRadio.player_volume = 100;
                     }
                     audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);   
+                    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
                     JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
                     JkkLcdVolumeInt(jkkRadio.player_volume);
                     ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
@@ -1079,6 +1078,7 @@ static void MainAppTask(void *arg){
                             jkkRadio.player_volume = 0;
                         }
                         audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
+                        xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
                         JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
                         JkkLcdVolumeInt(jkkRadio.player_volume);
                         ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
@@ -1086,6 +1086,7 @@ static void MainAppTask(void *arg){
                     else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
                         jkkRadio.player_volume = 0;
                         audio_hal_set_volume(jkkRadio.board_handle->audio_hal, 0);
+                        xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
                         JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
                         JkkLcdVolumeInt(jkkRadio.player_volume);
                         ESP_LOGI(TAG, "Volume jkkRadio.set MUTED");
@@ -1157,6 +1158,7 @@ static void MainAppTask(void *arg){
                 if(jkkRadio.player_volume > 0) audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, true);
 
                 audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
+                xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
                 JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
                 ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
 
@@ -1169,12 +1171,14 @@ static void MainAppTask(void *arg){
                         jkkRadio.player_volume = 0;
                     }
                     audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
+                    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
                     JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
                     ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
                     jkkRadio.player_volume = 0;
                     audio_hal_set_volume(jkkRadio.board_handle->audio_hal, 0);
+                    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
                     JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
                     ESP_LOGI(TAG, "Volume jkkRadio.set MUTED");
                 }

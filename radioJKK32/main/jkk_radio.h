@@ -36,13 +36,13 @@ extern "C" {
 
 #define SD_RECORDS_PATH "/sdcard/rec"
 
-#define JKK_RADIO_MAX_STATIONS (40) // Maximum number of radio stations
+#define JKK_RADIO_MAX_STATIONS (50) // Maximum number of radio stations
 #define JKK_RADIO_MAX_EBMEDDED_STATIONS (4) // Maximum number of embedded radio stations
 
 #define JKK_RADIO_MAX_EQ_PRESETS (10) // Maximum number of equalizers preset
 #define JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS (4) // Maximum number of embedded equalizers preset
 
-#define JKK_RADIO_WAIT_TO_SAVE_TIME (10 * 1000)
+#define JKK_RADIO_WAIT_TO_SAVE_TIME (10 * 1000) // Time to wait before saving changes of station, equalizerw, volume (in milliseconds) for longer life of flash memory (miminal 10 years)
 
 #define WIFI_CONNECTED_BIT BIT0
 
