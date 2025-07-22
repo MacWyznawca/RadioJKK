@@ -5,47 +5,68 @@
 ## 🌟 Główne funkcje
 
 ### 🌐 **Lokalny serwer WWW - NOWOŚĆ!**
-- **Zdalne sterowanie** przez przeglądarkę internetową
-- **Modyfikacja listy stacji radiowych** w czasie rzeczywistym
+
+- **Zdalne sterowanie** przez przeglądarkę internetową: głośność, wybór stacji, zmiana equalizera **Nowość!**
+- **Edycja listy stacji radiowych** - zmiany, dodawanie, usuwanie i zmiana kolejności **Nowość!**
 - **Automatyczne wykrywanie w sieci** dzięki mDNS/Bonjour/NetBIOS
 - **Responsywny interfejs** działający na wszystkich urządzeniach
-- **Dostęp lokalny** bez potrzeby połączenia z internetem
+- **Dostęp lokalny** bez potrzeby połączenia z Internetem
+- **Kopia na karcie SD** - możliwość zapisu aktualnej listy stacji do pliku
+
+### Inne nowości
+
+- Zwiększona maksymalna liczba stacji do 50
+- Więcej wbudowanych equalizerów (10)
+- Maksymalna liczba equalizerów zwiększona do 20
+- Zmiana kolejności stacji radiowych przez WWW
+- Zapis aktualnej listy stacji z pamięci flash urządzenia (NVS) na kartę SD
+- Wybór equalizera w przeglądarce
 
 ### 📻 Odtwarzanie audio
+
 - Obsługa wielu formatów audio: **MP3, AAC, OGG, WAV, FLAC, OPUS, M4A, AMR**
-- Strumieniowanie internetowe z automatycznym parsowaniem playlist
 - Wysokiej jakości dekodowanie i odtwarzanie
-- Automatyczne reconnect przy problemach z połączeniem
+- Automatyczne ponowne łączenie przy problemach z połączeniem
 
 ### 🔧 Przetwarzanie dźwięku
+
 - **10-pasmowy equalizer** z predefiniowanymi ustawieniami
-- Wskaźnik poziomu audio w czasie rzeczywistym
-- Możliwość włączania/wyłączania procesingu (equalizera) audio
+- Wskaźnik poziomu audio w czasie rzeczywistym (wymagany wyświetlacz)
+- Możliwość włączania/wyłączania przetwarzania (equalizera) audio
 
 ### 💾 Nagrywanie
+
 - **Nagrywanie na kartę SD** w formacie AAC
 - Automatyczne tworzenie struktury folderów według daty
 - Pliki informacyjne z metadanymi nagrań
 - Wsparcie dla kart SD o dużej pojemności
 
 ### 📱 Interfejsy użytkownika
+
 - **Lokalny serwer WWW** - główny sposób sterowania
 - **OLED I2C (SSD1306/SH1107)** z graficznym interfejsem LVGL
 - **Klawiatura GPIO** z obsługą długich naciśnięć
 - **Kody QR** (opcja z wyświetlaczem) dla łatwej konfiguracji WiFi
 
 ### 💾 Zapis bieżących ustawień
-- **Stacja, equalizer i głośność** są zapisywanie i odtwarzane po uruchomieniu/restarcie
-- **Bezpieczeństow pamięci flash** - dane są zapisywane dopiero 10 sekund po zmianie, na wypadek kolejnych częstych zmian
-- **Przewidywana trwałość Flash** - przy bardzo intensywnym (kilkaset zmian na dobę) użytkowaniu minimum 15 lat.
+
+- **Stacja, equalizer i głośność** są zapisywane i odtwarzane po uruchomieniu/restarcie
+- **Bezpieczeństwo pamięci flash** - dane są zapisywane dopiero 10 sekund po zmianie, na wypadek kolejnych częstych zmian
+- **Przewidywana trwałość flash** - przy bardzo intensywnym (kilkaset zmian na dobę) użytkowaniu minimum 15 lat
+
+### 💾 Kopia listy stacji radiowych
+
+- **Zapis listy stacji na kartę SD** w formacie zgodnym z używanym przez RadioJKK
 
 ### 🔗 Łączność
+
 - **WiFi** z automatycznym provisioningiem przez aplikację ESP SoftAP Prov
 - **mDNS/Bonjour, NetBIOS** dla łatwego odnajdywania w sieci
 - **SNTP** dla synchronizacji czasu
 - Obsługa konfiguracji przez aplikację ESP SoftAP
 
 ### ⚙️ Konfiguracja i zarządzanie
+
 - **Konfiguracja przez kartę SD** (stacje, equalizer, WiFi)
 - **Pamięć NVS** dla trwałego przechowywania ustawień
 - **Automatyczne wczytywanie** konfiguracji przy starcie
@@ -53,141 +74,162 @@
 ## 🚀 Jak zacząć
 
 ### Wymagania sprzętowe
+
 - **ESP32-A1S Audio Kit**
 - **Karta microSD** (opcjonalnie)
 - **Wyświetlacz OLED I2C** (opcjonalnie)
 
-Przykładowa oferta: [App: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_ooTic0A), [Web: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_onbBPzW) (affiliate)
+Przykładowa oferta: [App: ](https://s.click.aliexpress.com/e/_ooTic0A)[**AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_ooTic0A), [Web: ](https://s.click.aliexpress.com/e/_onbBPzW)[**AI Thinker ESP32-A1S**](https://s.click.aliexpress.com/e/_onbBPzW)
 
-![AI Thinker ESP32-A1S](img/ESP32A1S.jpeg)
+
 
 #### Zalecany wyświetlacz
 
 OLED SSD1306 128x64 z magistralą I2C. Dobrze, jeśli ma wbudowane 4 przyciski lub zapewnij takie przyciski osobno dla wygodniejszego użytkowania, np. [OLED SSD1306 128x64 z czterema przyciskami](https://s.click.aliexpress.com/e/_oFKo8XC)
 
-[![Przykładowy wyświetlacz](img/OLED-i2c.jpeg)](https://s.click.aliexpress.com/e/_oFKo8XC)
+
 
 #### Połączenie wyświetlacza:
+
 - SDA: **GPIO18**
 - SCL: **GPIO5**
 
 #### Połączenia opcjonalnych przycisków zewnętrznych:
+
 - KEY4 [Góra] **GPIO23**
 - KEY3 [Dół] **GPIO19**
 - KEY2 [Eq/Rec] **GPIO13/MTCK** (uwaga: zmień ustawienia przełączników DIP)
 - KEY1 [Stacje] **GPIO22**
 
-![Połączenie wyświetlacza I2C i klawiatury zewnętrznej](img/ESP32A1S-OLED-connections.jpeg)
+
 
 ### Instalacja
+
 1. **Klonowanie repozytorium:**
+
    ```bash
    git clone --recurse-submodules https://github.com/MacWyznawca/RadioJKK.git
    cd radioJKK32
    ```
 
-2. **Konfiguracja ESP-IDF i ESP-ADF:**
-Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html#quick-start). Repozytorium [ESP-ADF na GitHub](https://github.com/espressif/esp-adf).  
+2. **Konfiguracja ESP-IDF i ESP-ADF:** Opis instalacji: [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html#quick-start). Repozytorium: [ESP-ADF na GitHub](https://github.com/espressif/esp-adf).
 
-**Uwaga**: dla ESP-IDF 5.4.x i 5.5.x użyj:
+   **Uwaga:** dla ESP-IDF 5.4.x i 5.5.x użyj:
+
    ```bash
-   cd $IDF_PATH 
+   cd $IDF_PATH
    git apply $ADF_PATH/idf_patches/idf_v5.4_freertos.patch
    ```
 
 3. **Kompilacja i wgranie:**
+
    ```bash
    idf.py build
-   idf.py -p [nazwa/ścieżka do portu COM] flash monitor
+   idf.py -p [nazwa/port COM] flash monitor
    ```
-   Wyjście z monitora: Control+] (CTRL + nawias kwadratowy zamykający)
 
-4. **Użycie prekompilowanego pliku:**  
-   Wgraj dowolnym narzędziem do flashowania ESP32 wybrany plik z folderu `bin` pod adres 0x0, np. komendą:   
+   Wyjście z monitora: Ctrl + ]
+
+4. **Użycie prekompilowanego pliku:**\
+   Wgraj dowolnym narzędziem do flashowania ESP32 wybrany plik z folderu `bin` pod adres 0x0, np.:
+
    ```bash
    esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v1.bin
    ```
 
-## 📋 Konfiguracja
+## 📌 Konfiguracja
 
 ### Konfiguracja WiFi
+
 W przypadku skanowania kodu **QR** przejdź do punktu 3.
+
 1. **Przy pierwszym uruchomieniu** urządzenie utworzy punkt dostępowy "JKK..."
 2. **Połącz się** z tym punktem i użyj aplikacji ESP SoftAP
 3. **Zeskanuj kod QR** wyświetlany na OLED lub wpisz dane ręcznie. PIN: jkk
 4. **Wprowadź dane WiFi** swojej sieci
 
-**Uwaga**: po pierwszej konfiguracji, jeżeli serwer WWW nie odpowiada, zalecam restart urządzenia.
+**Uwaga:** po pierwszej konfiguracji, jeśli serwer WWW nie odpowiada, zalecany jest restart urządzenia.
 
 **Alternatywnie za pomocą karty SD**:
 
-Utwórz plik `settings.txt` z nazwą sieci WiFi i hasłem oddzielonymi średnikiem (jedna linia tekstu):  
+Utwórz plik `settings.txt` z nazwą sieci WiFi i hasłem oddzielonymi średnikiem (jedna linia tekstu):
+
 ```
 mySSID;myPassword
 ```
-Jeżeli nie chcesz uruchamiać serwera WWW, dodaj na końcu po średniku: wwwoff
+
+Jeżeli nie chcesz uruchamiać serwera WWW, dodaj na końcu po średniku: `wwwoff`
+
 ```
 mySSID;myPassword;wwwoff
 ```
 
 ### Lista stacji radiowych
+
 Przez interfejs WWW lub kartę SD
 
 Utwórz plik `stations.txt` na karcie SD w formacie:
+
 ```
 http://stream.url;KrótkoNazwa;Długa nazwa stacji;0;1;opis_audio
 ```
 
 **Przykład:**
+
 ```
 http://mp3.polskieradio.pl:8904/;PR3;Polskie Radio Program Trzeci;0;1;
 http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław;0;5;
 ```
 
 ### Predefiniowane ustawienia equalizera
+
 Utwórz plik `eq.txt` na karcie SD:
+
 ```
 flat;0;0;0;0;0;0;0;0;0;0
 music;2;3;1;0;-1;-2;0;1;2;0
 rock;4;5;3;1;-1;-3;-1;3;4;0
 ```
-Zawsze 10 ustawień korekcji w dB
 
-**Uwaga**: Wszystkie pliki konfiguracyjne należy zapisywać w głównym katalogu karty SD.
+Zawsze 10 ustawień korekcji w dB.
+
+**Uwaga:** wszystkie pliki konfiguracyjne należy zapisywać w głównym katalogu karty SD.
 
 ## 🌐 Serwer WWW
 
 ### Dostęp do serwera
-- **Automatyczne wykrywanie:** `http://radiojkk32.local` (dzięki mDNS/Bonjour). NetBIOS: RadioJKK
+
+- **Automatyczne wykrywanie:** `http://radiojkk32.local` (dzięki mDNS/Bonjour). NetBIOS: `RadioJKK`
 - **Bezpośredni IP:** `http://[adres-ip-urządzenia]`
 - **Port:** 80 (domyślny)
 
 ### Funkcje serwera WWW
+
 - 📻 **Sterowanie odtwarzaniem** (play/pause/stop)
 - 🔊 **Regulacja głośności** w czasie rzeczywistym
-- 📝 **Zmiana stacji** z pełną listą dostępnych opcji
+- 📋 **Zmiana stacji** z pełną listą dostępnych opcji
 - 📋 **Edycja listy stacji** bez potrzeby fizycznego dostępu
 
-## 🎛️ Obsługa przycisków (tryb bez OLED)
+## 🎠 Obsługa przycisków (tryb bez OLED)
 
-| Przycisk | Krótkie naciśnięcie | Długie naciśnięcie |
-|----------|-------------------|-------------------|
-| **PLAY** KEY3 | Poprzednia stacja | Ulubiona stacja |
-| **SET** KEY4 | Następna stacja | Pierwsza stacja |
-| **MODE** KEY2 | Następny equalizer | Reset equalizera |
-| **REC** KEY1 | Start nagrywania | Stop nagrywania |
-| **VOL+** KEY6| Zwiększ głośność | - |
-| **VOL-** KEY5 | Zmniejsz głośność | Wycisz |
+| Przycisk      | Krótkie naciśnięcie | Długie naciśnięcie |
+| ------------- | ------------------- | ------------------ |
+| **PLAY** KEY3 | Poprzednia stacja   | Ulubiona stacja    |
+| **SET** KEY4  | Następna stacja     | Pierwsza stacja    |
+| **MODE** KEY2 | Następny equalizer  | Reset equalizera   |
+| **REC** KEY1  | Start nagrywania    | Stop nagrywania    |
+| **VOL+** KEY6 | Zwiększ głośność    | -                  |
+| **VOL-** KEY5 | Zmniejsz głośność   | Wycisz             |
 
 ## 🖥️ Obsługa OLED (gdy włączone)
 
-| Przycisk | Krótkie naciśnięcie | Długie naciśnięcie |
-|----------|-------------------|-------------------|
-| **MODE** KEY1 | Lista stacji/Potwierdź | Zamknij [ESC] |
-| **SET** KEY2 | Lista equalizer | Nagrywanie start/stop |
+| Przycisk             | Krótkie naciśnięcie         | Długie naciśnięcie    |
+| -------------------- | --------------------------- | --------------------- |
+| **MODE** KEY1        | Lista stacji/Potwierdź      | Zamknij [ESC]         |
+| **SET** KEY2         | Lista equalizer             | Nagrywanie start/stop |
 | **VOL+/-** KEY4/KEY3 | Nawigacja w menu / Głośność | Wyciszenie / Ulubiona |
 
-## 🔧 Opcje konfiguracji
+## ⚖️ Opcje konfiguracji
 
 Projekt oferuje szerokie możliwości konfiguracji przez `menuconfig`:
 
@@ -196,10 +238,11 @@ idf.py menuconfig
 ```
 
 ### Dostępne opcje:
+
 - **Typ wyświetlacza:** SSD1306/SH1107
-- **Rozdzielczość:** 128x64 
-- **Typ przycisków:** GPIO 
-- **Wariant płytki:** ESP32-A1S 
+- **Rozdzielczość:** 128x64
+- **Typ przycisków:** GPIO
+- **Wariant płytki:** ESP32-A1S
 - **Karta SD:** włącz/wyłącz
 - **Klawisze zewnętrzne:** opcjonalne
 
@@ -209,7 +252,7 @@ Projekt obsługuje polskie znaki diakrytyczne z automatyczną konwersją UTF-8 n
 
 ## 🤝 Wkład w projekt
 
-Zapraszamy do współtworzenia projektu! 
+Zapraszamy do współtworzenia projektu!
 
 1. **Fork** repozytorium
 2. **Utwórz branch** dla swojej funkcji
@@ -220,7 +263,7 @@ Zapraszamy do współtworzenia projektu!
 
 Ten projekt jest licencjonowany na licencji **MIT License** - zobacz plik [LICENSE](LICENSE) dla szczegółów.
 
-## 🙏 Podziękowania
+## 👏 Podziękowania
 
 - **Espressif Systems** za ESP-IDF i ESP-ADF
 - **LVGL** za bibliotekę graficzną

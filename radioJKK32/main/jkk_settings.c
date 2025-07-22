@@ -29,23 +29,18 @@ static const char *TAG = "JKK_SETTI";
 extern const char stations_start[] asm("_binary_stations_txt_start"); 
 
 static const JkkRadioEqualizer_t eq_embedded[JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS] = {
-    {
-        .name = "flat",
-        .gain = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    }, 
-    {
-        .name = "music",
-        .gain = {2,3,1,0,-1,-2,0,1,2,0},
-    }, 
-    {
-        .name = "rock",
-        .gain = {4,5,3,1,-1,-3,-1,3,4,0},
-    }, 
-    {
-        .name = "speak",
-        .gain = {-3,-2,1,3,3,1,0,-1,-2,0},
-    }, 
+    { "flat",       { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0 } },
+    { "music",      { 2,  3,  1,  0, -1, -2,  0,  1,  2,  0 } },
+    { "rock",       { 4,  5,  3,  1, -1, -3, -1,  3,  4,  0 } },
+    { "speak",      { -3, -2,  1,  3,  3,  1,  0, -1, -2,  0 } },
+    { "lo-up",      { 4,  3,  2,  1,  0, -1, -2, -2, -3,  0 } },
+    { "hi-up",      { -2, -1,  0,  1,  1,  1,  2,  3,  4,  0 } },
+    { "jazz",       { 1,  2,  1,  1,  0, -1,  0,  1,  2,  0 } },
+    { "news",       { -2, -1,  2,  4,  3,  1, -1, -2, -3,  0 } },
+    { "bass",       { 5,  4,  2,  0, -1, -2, -3, -3, -2,  0 } },
+    { "vocal",      { -2, -1,  2,  3,  3,  1, -1, -2, -2,  0 } },
 };
+
 
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
 static void JkkLcdReloadRoller(JkkRadio_t *jkkRadio){
@@ -134,7 +129,6 @@ static void JkkRadioStationEmbeddedRead(JkkRadio_t *jkkRadio, char const *statio
         jkkRadio->jkkRadioStations[0].audioDes[0] = '\0'; // Default to empty audio description
         ESP_LOGI(TAG, "No stations provided, initialized with default station: %s", jkkRadio->jkkRadioStations[0].nameLong);
         jkkRadio->station_count = 1; // Set station count to 1 for the default station
-        JkkRadioListForWWW();
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
         JkkLcdReloadRoller(jkkRadio);
 #endif
@@ -224,7 +218,6 @@ static void JkkRadioStationEmbeddedRead(JkkRadio_t *jkkRadio, char const *statio
     }
     free(stations); // Free the temporary string buffer
     jkkRadio->station_count = index;
-    JkkRadioListForWWW();
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdReloadRoller(jkkRadio);
 #endif
@@ -299,7 +292,6 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             ESP_LOGW(TAG, "No stations found in NVS and /sdcard/stations.txt does not exist, using embedded stations");
             JkkRadioStationEmbeddedRead(jkkRadio, stations_start);
         }
-        JkkRadioListForWWW();
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
         JkkLcdReloadRoller(jkkRadio);
 #endif
@@ -333,7 +325,6 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             return ESP_ERR_NO_MEM;
         }
     }
-    jkkRadio->radioStationChanged = false;
     
     int index = 0;
     while(fgets(lineStr, sizeof(lineStr), fptr)) {
@@ -350,8 +341,6 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
             sprintf(key, JKK_RADIO_NVS_STATION_KEY, index);
             
             if(jkkRadio->jkkRadioStations[index].addFrom != JKK_RADIO_ADD_FROM_WEB && (strcmp(uri, jkkRadio->jkkRadioStations[index].uri) || (nameShort && strcmp(nameShort, jkkRadio->jkkRadioStations[index].nameShort)) || (nameLong && strcmp(nameLong, jkkRadio->jkkRadioStations[index].nameLong)) || jkkRadio->jkkRadioStations[index].is_favorite != (is_favorite && strcmp(is_favorite, "1") == 0))) {
-                // If the station is different from the one in NVS, update it
-                jkkRadio->radioStationChanged = true;
 
                 strncpy(jkkRadio->jkkRadioStations[index].uri, uri, sizeof(jkkRadio->jkkRadioStations[index].uri) - 1);
 
@@ -431,7 +420,6 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio) {
                  jkkRadio->jkkRadioStations[i].audioDes);   
     }
     jkkRadio->station_count = index;
-    JkkRadioListForWWW();
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdReloadRoller(jkkRadio);
 #endif

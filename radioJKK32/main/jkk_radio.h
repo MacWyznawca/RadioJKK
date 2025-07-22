@@ -39,8 +39,8 @@ extern "C" {
 #define JKK_RADIO_MAX_STATIONS (50) // Maximum number of radio stations
 #define JKK_RADIO_MAX_EBMEDDED_STATIONS (4) // Maximum number of embedded radio stations
 
-#define JKK_RADIO_MAX_EQ_PRESETS (10) // Maximum number of equalizers preset
-#define JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS (4) // Maximum number of embedded equalizers preset
+#define JKK_RADIO_MAX_EQ_PRESETS (20) // Maximum number of equalizers preset
+#define JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS (10) // Maximum number of embedded equalizers preset
 
 #define JKK_RADIO_WAIT_TO_SAVE_TIME (10 * 1000) // Time to wait before saving changes of station, equalizerw, volume (in milliseconds) for longer life of flash memory (miminal 10 years)
 
@@ -72,7 +72,8 @@ typedef enum  {
     JKK_RADIO_TO_SAVE_CURRENT_STATION = 1 << 0,
     JKK_RADIO_TO_SAVE_EQ  = 1 << 1,
     JKK_RADIO_TO_SAVE_VOLUME  = 1 << 2,
-    JKK_RADIO_TO_SAVE_MAX,
+    JKK_RADIO_TO_SAVE_ALL = JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME,
+    JKK_RADIO_TO_SAVE_MAX = JKK_RADIO_TO_SAVE_ALL + 1,
 } toSave_e;
 
 typedef enum  {
@@ -130,7 +131,6 @@ typedef struct JkkRadio_s {
     status_e statusStation; 
     toSave_e whatToSave;
     JkkRadioStations_t *jkkRadioStations; // Pointer to the array of radio stations
-    bool radioStationChanged;
     bool isProvisioned;
     bool runWebServer;
     JkkRadioEqualizer_t *eqPresets;
@@ -140,10 +140,14 @@ typedef struct JkkRadio_s {
 } JkkRadio_t;
 
 void JkkRadioSetStation(uint16_t station);
+void JkkRadioSetEqualizer(uint8_t eq);
 void JkkRadioSetVolume(uint8_t vol);
 void JkkRadioDeleteStation(uint16_t station);
 void JkkRadioEditStation(char *csvTxt);
 void JkkRadioListForWWW(void);
+void JkkRadioEqListForWWW(void);
+esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex);
+esp_err_t JkkRadioExportStations(const char *filename);
 
 esp_err_t JkkRadioSendMessageToMain(int mess, int command);
 

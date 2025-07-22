@@ -240,15 +240,232 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     }
 }
 
+esp_err_t JkkRadioExportStations(const char *filename) {
+    FILE *fptr;
+    char filepath[64];
+    
+    if (!jkkRadio.jkkRadioStations || jkkRadio.station_count == 0) {
+        ESP_LOGW(TAG, "No stations to export");
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    // Prepare file path
+    if (filename == NULL) {
+        strcpy(filepath, "/sdcard/stations_export.txt");
+    } else {
+        snprintf(filepath, sizeof(filepath), "/sdcard/%s", filename);
+    }
+    
+    ESP_LOGI(TAG, "Exporting stations to %s", filepath);
+    
+    fptr = fopen(filepath, "w");
+    if (fptr == NULL) {
+        ESP_LOGE(TAG, "Error opening %s for writing", filepath);
+        return ESP_ERR_NOT_FOUND;
+    }
+    
+    // Write header with timestamp
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    
+    fprintf(fptr, "# RadioJKK32 Station Export\n");
+    fprintf(fptr, "# Generated: %04d-%02d-%02d %02d:%02d:%02d\n",
+            timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
+            timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    fprintf(fptr, "# Total stations: %d\n", jkkRadio.station_count);
+    fprintf(fptr, "#\n");
+    fprintf(fptr, "# Format: URL;ShortName;LongName;Favorite;Type;AudioDescription\n");
+    fprintf(fptr, "#\n");
+    
+    int exported_count = 0;
+    
+    // Write stations
+    for (int i = 0; i < jkkRadio.station_count; i++) {
+        const JkkRadioStations_t *station = &jkkRadio.jkkRadioStations[i];
+        
+        // Skip invalid stations
+        if (strlen(station->uri) == 0) {
+            continue;
+        }
+        
+        fprintf(fptr, "%s;%s;%s;%d;%d",
+                station->uri,
+                station->nameShort,
+                station->nameLong,
+                station->is_favorite ? 1 : 0,
+                station->type);
+        
+        if (strlen(station->audioDes) > 0) {
+            fprintf(fptr, ";%s", station->audioDes);
+        }
+        
+        fprintf(fptr, "\n");
+        exported_count++;
+    }
+    
+    fclose(fptr);
+    
+    ESP_LOGI(TAG, "Exported %d stations to %s", exported_count, filepath);
+    return ESP_OK;
+}
+
+void JkkRadioEqListForWWW(void){
+    char *eqRollerOptions = NULL;
+
+    eqRollerOptions = heap_caps_calloc(jkkRadio.eq_count, 18, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    for (int i = 0; i < jkkRadio.eq_count; i++) {
+        char eqName[28] = {0};
+        snprintf(eqName, sizeof(eqName), "%d;%s", i, jkkRadio.eqPresets[i].name);
+        strncat(eqRollerOptions, eqName, 18);
+        if(i < jkkRadio.eq_count - 1) strcat(eqRollerOptions, "\n");
+    }
+    JkkRadioWwwUpdateEqList(eqRollerOptions);
+    free(eqRollerOptions);
+}
+
+void JkkRadioSetEqualizer(uint8_t eq) {
+    if(eq >= jkkRadio.eq_count) {
+        ESP_LOGE(TAG, "Invalid equalizer index: %d", eq);
+        return;
+    }
+    
+    int oldEq = jkkRadio.current_eq;
+    jkkRadio.current_eq = eq;
+    
+    ESP_LOGI(TAG, "Setting equalizer to: %s (index %d)", jkkRadio.eqPresets[eq].name, eq);
+    
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+    if(JkkAudioMainProcessState()) JkkLcdEqTxt(jkkRadio.eqPresets[jkkRadio.current_eq].name);
+    else JkkLcdEqTxt("");
+#endif
+    
+    if(oldEq != jkkRadio.current_eq) {
+        JkkAudioEqSetAll(jkkRadio.eqPresets[jkkRadio.current_eq].gain);
+        jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_EQ;
+        xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY); // Save eq after delay to limit NVS writes
+    }
+    
+    JkkRadioWwwSetEqId(jkkRadio.current_eq);
+}
+
+// Add this function to radio_jkk.c (e.g. after JkkRadioEditStation function)
+
+esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex) {
+    ESP_LOGW(TAG, "Reordering station: from %d to %d", oldIndex, newIndex);
+    
+    // Check validity of indices
+    if (oldIndex < 0 || oldIndex >= jkkRadio.station_count || 
+        newIndex < 0 || newIndex >= jkkRadio.station_count) {
+        ESP_LOGE(TAG, "Invalid indices for reordering: old=%d, new=%d, count=%d", 
+                 oldIndex, newIndex, jkkRadio.station_count);
+        return ESP_ERR_INVALID_ARG;
+    }
+    
+    if (oldIndex == newIndex) {
+        ESP_LOGI(TAG, "No reordering needed, indices are the same");
+        return ESP_OK;
+    }
+    
+    // Save station to move
+    JkkRadioStations_t tempStation;
+    memcpy(&tempStation, &jkkRadio.jkkRadioStations[oldIndex], sizeof(JkkRadioStations_t));
+    
+    // Move stations depending on direction
+    if (oldIndex < newIndex) {
+        // Moving up - shift stations down
+        for (int i = oldIndex; i < newIndex; i++) {
+            memcpy(&jkkRadio.jkkRadioStations[i], &jkkRadio.jkkRadioStations[i + 1], sizeof(JkkRadioStations_t));
+        }
+    } else {
+        // Moving down - shift stations up
+        for (int i = oldIndex; i > newIndex; i--) {
+            memcpy(&jkkRadio.jkkRadioStations[i], &jkkRadio.jkkRadioStations[i - 1], sizeof(JkkRadioStations_t));
+        }
+    }
+    
+    // Insert station at new position
+    memcpy(&jkkRadio.jkkRadioStations[newIndex], &tempStation, sizeof(JkkRadioStations_t));
+    
+    // Update current station if needed
+    if (jkkRadio.current_station == oldIndex) {
+        jkkRadio.current_station = newIndex;
+        jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
+    } else if (oldIndex < newIndex && 
+               jkkRadio.current_station > oldIndex && 
+               jkkRadio.current_station <= newIndex) {
+        jkkRadio.current_station--;
+        jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
+    } else if (oldIndex > newIndex && 
+               jkkRadio.current_station >= newIndex && 
+               jkkRadio.current_station < oldIndex) {
+        jkkRadio.current_station++;
+        jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
+    }
+    
+    // Update prev_station similarly
+    if (jkkRadio.prev_station == oldIndex) {
+        jkkRadio.prev_station = newIndex;
+    } else if (oldIndex < newIndex && 
+               jkkRadio.prev_station > oldIndex && 
+               jkkRadio.prev_station <= newIndex) {
+        jkkRadio.prev_station--;
+    } else if (oldIndex > newIndex && 
+               jkkRadio.prev_station >= newIndex && 
+               jkkRadio.prev_station < oldIndex) {
+        jkkRadio.prev_station++;
+    }
+    
+    // Save all stations in NVS with new positions
+    for (int i = 0; i < jkkRadio.station_count; i++) {
+        char key[16] = {0};
+        sprintf(key, JKK_RADIO_NVS_STATION_KEY, i);
+        JkkNvsBlobSet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio.jkkRadioStations[i], sizeof(JkkRadioStations_t));
+    }
+    
+    // Start timer to save current station
+    if (jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_CURRENT_STATION) {
+        xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
+    }
+    
+    // Update list for WWW server
+    JkkRadioListForWWW();
+    
+    // Update roller in LCD if used
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+    if (JkkLcdRollerMode() == JKK_ROLLER_MODE_STATION_LIST) {
+        char *lcdRollerOptions = heap_caps_calloc(jkkRadio.station_count, 10, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (lcdRollerOptions) {
+            for (int i = 0; i < jkkRadio.station_count; i++) {
+                strncat(lcdRollerOptions, jkkRadio.jkkRadioStations[i].nameShort, 8);
+                if (i < jkkRadio.station_count - 1) strcat(lcdRollerOptions, "\n");
+            }
+            JkkLcdSetRollerOptions(lcdRollerOptions, jkkRadio.current_station);
+            free(lcdRollerOptions);
+        }
+    }
+#endif
+    
+    ESP_LOGI(TAG, "Station successfully moved from position %d to %d", oldIndex, newIndex);
+    return ESP_OK;
+}
+
+static void JkkRadioUpdateVolume(void){
+    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume); 
+    jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_VOLUME;
+    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
+    JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+    JkkLcdVolumeInt(jkkRadio.player_volume);
+#endif
+}
+
 void JkkRadioSetVolume(uint8_t vol){
     if(vol > 100) vol = 100;
     jkkRadio.player_volume = vol;
     ESP_LOGI(TAG, "Set volume: %d", jkkRadio.player_volume);
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
-    JkkLcdVolumeInt(jkkRadio.player_volume);
-#endif
-    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
-    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
+    JkkRadioUpdateVolume();
 }
 
 void JkkRadioDeleteStation(uint16_t station){
@@ -482,6 +699,8 @@ static void JkkChangeEq(int eqN){
 #else
    // LedIndicatorPattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + jkkRadio.current_eq + 1, 1);
 #endif
+    JkkRadioWwwSetEqId(jkkRadio.current_eq);
+    
     if(oldEq != jkkRadio.current_eq){
         JkkAudioEqSetAll(jkkRadio.eqPresets[jkkRadio.current_eq].gain);
         jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_EQ;
@@ -592,7 +811,7 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
     if(xTimer == NULL) return;
     ESP_LOGI(TAG, "SaveTimerHandle");
 
-    if(jkkRadio.whatToSave == JKK_RADIO_TO_SAVE_CURRENT_STATION) {
+    if((jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_CURRENT_STATION) > 0) {
         jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
     }
 
@@ -608,6 +827,14 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
 }
 
 static void MainAppTask(void *arg){
+
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+
+    ESP_ERROR_CHECK(esp_netif_init());
 
     esp_log_level_set("*", ESP_LOG_INFO);
     esp_log_level_set(TAG, ESP_LOG_DEBUG);
@@ -644,22 +871,23 @@ static void MainAppTask(void *arg){
     JkkRadioStationSdRead(&jkkRadio);
     JkkRadioEqSdRead(&jkkRadio);
 
-    if(jkkRadio.radioStationChanged){ // If any station from lisy changed, reset saved station and other data
-        JkkNvs64_set("stateStEq", JKK_RADIO_NVS_NAMESPACE, 0);
-        jkkRadio.player_volume = 10;
+    JkkRadioEqListForWWW();
+    JkkRadioListForWWW();
+
+    JkkRadioDataToSave_t toRead = {0};
+
+    if(JkkNvs64_get("stateStEq", JKK_RADIO_NVS_NAMESPACE, &toRead.all64) == ESP_OK){
+        jkkRadio.current_eq = toRead.current_eq < jkkRadio.eq_count ? toRead.current_eq : 0;
+        jkkRadio.prev_station = jkkRadio.current_station = toRead.current_station < jkkRadio.station_count ? toRead.current_station : 0;
+        jkkRadio.player_volume = toRead.current_volume <= 100 ? toRead.current_volume : 10; // Volume should be in range 0-100
     }
     else {
-        JkkRadioDataToSave_t toRead = {0};
-        if(JkkNvs64_get("stateStEq", JKK_RADIO_NVS_NAMESPACE, &toRead.all64) == ESP_OK){
-            jkkRadio.current_eq = toRead.current_eq < jkkRadio.eq_count ? toRead.current_eq : 0;
-            jkkRadio.prev_station = jkkRadio.current_station = toRead.current_station < jkkRadio.station_count ? toRead.current_station : 0;
-            jkkRadio.player_volume = toRead.current_volume <= 100 ? toRead.current_volume : 10; // Volume should be in range 0-100
-        }
-        else {
-            ESP_LOGW(TAG, "No saved state found, using defaults");
-            jkkRadio.player_volume = 10;
-        }
+        ESP_LOGW(TAG, "No saved state found, using defaults");
+        jkkRadio.player_volume = 10;
+        jkkRadio.whatToSave = JKK_RADIO_TO_SAVE_ALL;
+        xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
     }
+
     audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
     JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
 
@@ -792,6 +1020,8 @@ static void MainAppTask(void *arg){
   //  LedIndicatorPattern(jkkRadio.disp_serv, JKK_DISPLAY_PATTERN_BR_PULSE + 1, 1);
 #endif
     JkkRadioWwwSetStationId(jkkRadio.current_station);
+    JkkRadioWwwSetEqId(jkkRadio.current_eq); // Ustaw aktualny equalizer
+
     ESP_LOGI(TAG, "Set up  event listener");
     audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
     jkkRadio.evt = audio_event_iface_init(&evt_cfg);
@@ -858,19 +1088,14 @@ static void MainAppTask(void *arg){
         } 
         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.cmd == AEL_MSG_CMD_REPORT_STATUS && msg.data_len == 4 && msg.data) {
             if((int)(intptr_t)msg.data >= AEL_STATUS_ERROR_OPEN && (int)(intptr_t)msg.data <= AEL_STATUS_ERROR_UNKNOWN){
-                switch(jkkRadio.statusStation){
-                    case JKK_RADIO_STATUS_CHANGING_STATION:{
+                if(jkkRadio.statusStation == JKK_RADIO_STATUS_CHANGING_STATION){
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-                        JkkLcdStationTxt(" error! ");
+                    JkkLcdStationTxt(" error! ");
 #endif
-                        JkkRadioWwwSetStationId(-1);
-                        vTaskDelay(pdMS_TO_TICKS(500));
-                        jkkRadio.statusStation = JKK_RADIO_STATUS_ERROR;
-                        JkkRadioSetStation(jkkRadio.prev_station);
-                    }
-                    break;
-                    default:
-                    break;
+                    JkkRadioWwwSetStationId(-1);
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    jkkRadio.statusStation = JKK_RADIO_STATUS_ERROR;
+                    JkkRadioSetStation(jkkRadio.prev_station);
                 }
             }
         }
@@ -911,6 +1136,8 @@ static void MainAppTask(void *arg){
             JkkRadioSettingsRead(&jkkRadio);
             JkkRadioStationSdRead(&jkkRadio);
             JkkRadioEqSdRead(&jkkRadio);
+            JkkRadioEqListForWWW();
+            JkkRadioListForWWW();
             continue;
         }
 
@@ -1053,10 +1280,7 @@ static void MainAppTask(void *arg){
                     if (jkkRadio.player_volume > 100) {
                         jkkRadio.player_volume = 100;
                     }
-                    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);   
-                    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
-                    JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
-                    JkkLcdVolumeInt(jkkRadio.player_volume);
+                    JkkRadioUpdateVolume();
                     ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
                 }
             } else if ((int)msg.data == get_input_voldown_id()) {
@@ -1077,18 +1301,12 @@ static void MainAppTask(void *arg){
                         if (jkkRadio.player_volume < 0) {
                             jkkRadio.player_volume = 0;
                         }
-                        audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
-                        xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
-                        JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
-                        JkkLcdVolumeInt(jkkRadio.player_volume);
+                        JkkRadioUpdateVolume();
                         ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
                     }
                     else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
                         jkkRadio.player_volume = 0;
-                        audio_hal_set_volume(jkkRadio.board_handle->audio_hal, 0);
-                        xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
-                        JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
-                        JkkLcdVolumeInt(jkkRadio.player_volume);
+                        JkkRadioUpdateVolume();
                         ESP_LOGI(TAG, "Volume jkkRadio.set MUTED");
                     }
                 }
@@ -1157,9 +1375,7 @@ static void MainAppTask(void *arg){
                 }
                 if(jkkRadio.player_volume > 0) audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, true);
 
-                audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
-                xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
-                JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
+                JkkRadioUpdateVolume();
                 ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
 
               //  cli_get_mp3_id3_info(audio_decoder);
@@ -1170,16 +1386,12 @@ static void MainAppTask(void *arg){
                     if (jkkRadio.player_volume < 0) {
                         jkkRadio.player_volume = 0;
                     }
-                    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
-                    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
-                    JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
+                    JkkRadioUpdateVolume();
                     ESP_LOGI(TAG, "Volume jkkRadio.set to %d%%", jkkRadio.player_volume);
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
                     jkkRadio.player_volume = 0;
-                    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, 0);
-                    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
-                    JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
+                    JkkRadioUpdateVolume();
                     ESP_LOGI(TAG, "Volume jkkRadio.set MUTED");
                 }
             }
@@ -1203,13 +1415,5 @@ static void MainAppTask(void *arg){
 }
 
 void app_main(){
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-
-    ESP_ERROR_CHECK(esp_netif_init());
-
     xTaskCreatePinnedToCoreWithCaps(MainAppTask, "LVGL", 4 * 1024 + 512, NULL, 4, &eventsHandle, 1, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 }

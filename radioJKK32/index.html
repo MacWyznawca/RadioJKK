@@ -45,6 +45,27 @@
             background-color: rgb(251, 85, 85);
         }
 
+        /* Drag & Drop styles */
+        .station-entry.dragging {
+            opacity: 0.5;
+            background-color: #ddd !important;
+        }
+
+        .station-entry.drag-over {
+            border-top: 3px solid #007bff !important;
+        }
+
+        .drag-handle {
+            cursor: grab;
+            padding: 0 5px;
+            color: #666;
+            font-weight: bold;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
         input[type="range"] {
             width: 95%;
             max-width: 800px;
@@ -91,10 +112,25 @@
             max-width: 800px;
             margin: 1rem auto;
             overflow-y: auto;
-            max-height: 60vh; /* 300px*/
+            max-height: 60vh;
             border-radius: 4px;
             background: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding-bottom: 30px; /* Add space at bottom for drop zone */
+        }
+
+        /* Drop zone at the end of table */
+        .drop-zone {
+            height: 30px;
+            background: transparent;
+            border: 2px dashed transparent;
+            margin-top: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.drag-over {
+            border-color: #007bff;
+            background-color: #f0f8ff;
         }
 
         td button {
@@ -115,16 +151,17 @@
             display: flex;
             flex-direction: column;
             gap: 1em;
-            }
+        }
 
         .form-group {
             display: flex;
-            flex-direction: column;
+            flex-direction: line;
         }
 
         .form-group label {
             font-weight: bold;
-            margin-bottom: 0.3em;
+            margin-right: 0.3em;
+            align-self: center;
         }
 
         .form-group input {
@@ -158,6 +195,21 @@
 
         .form-buttons button:hover {
             background-color: #0056b3;
+        }
+
+        .backup-button {
+            padding: 0.6rem 1.2rem;
+            font-size: 1rem;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background 0.2s ease-in-out;
+        }
+
+        .backup-button:hover {
+            background-color: #218838;
         }
 
         .button-group {
@@ -203,6 +255,14 @@
                 padding: 0.5rem;
                 font-size: 1.1rem;
             }
+
+            /* Mobile adjustments for volume/equalizer container */
+            div[style*="justify-content: space-between"] {
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0.5rem 0 !important;
+                padding: 0 !important;
+            }
         }
 
         @media (hover: none) and (pointer: coarse) {
@@ -218,18 +278,25 @@
 <body>
     <h1>Radio JKK</h1>
 
-    <h2><span id="stationName">...</span></h2>
-
     <div>
         <input type="range" min="0" max="100" id="volume" />
-        <p>Volume: <span id="volPercent"><b>...</b></span></p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 0.5rem auto; flex-wrap: wrap; gap: 1rem; width: 95%; max-width: 800px; padding: 0 1rem; box-sizing: border-box;">
+            <p style="font-weight: bold; margin: 0;">Volume: <span id="volPercent"><b>...</b></span></p>
+            <div>
+                <label for="equalizer-select" style="font-weight: bold; margin-right: 0.5rem;">Equalizer:</label>
+                <select id="equalizer-select" style="padding: 0.5rem; font-size: 1rem; border-radius: 0.25rem; border: 1px solid #ccc; background: white;">
+                    <option value="-1">Loading...</option>
+                </select>
+            </div>
+        </div>
     </div>
 
-    <h2>Station list</h2>
+    <h2><span id="stationName">...</span></h2>
     <div class="table-container">
         <table id="station-table">
             <thead>
                 <tr>
+                    <th>🔽</th>
                     <th>Name</th>
                     <th>Description</th>
                     <th></th>
@@ -237,41 +304,52 @@
             </thead>
             <tbody id="station-list"></tbody>
         </table>
-    </div>
-    <!-- Formularz edycji i dodawania -->
-    <h2 id="form-title" style="margin-top: 2em;">Add station</h2>
-    <div class="form-container">
-    <div class="form-group">
-        <label for="station-name">Name</label>
-        <input id="station-name" type="text" maxlength="256" placeholder="Radio Example">
-    </div>
-    <div class="form-group">
-        <label for="station-desc">Description</label>
-        <input id="station-desc" type="text" maxlength="256" placeholder="Ulubiona stacja jazzowa...">
-    </div>
-    <div class="form-group">
-        <label for="station-url">URL</label>
-        <input id="station-url" type="text" maxlength="256" placeholder="http://example.com/stream.mp3">
+        <div id="drop-zone" class="drop-zone"></div>
     </div>
 
-    <input type="hidden" id="station-id">
-    
-    <div class="form-buttons">
-        <button id="form-ok-button" onclick="submitEdit()">💾 Add station</button>
-        <button onclick="clearForm()">🧹 Clear form</button>
+    <h2 id="form-title" style="margin-top: 1em;">Add station</h2>
+    <div class="form-container">
+        <div class="form-group">
+            <label for="station-name">Name</label>
+            <input id="station-name" type="text" maxlength="256" placeholder="Radio Example">
+        </div>
+        <div class="form-group">
+            <label for="station-desc">Description</label>
+            <input id="station-desc" type="text" maxlength="256" placeholder="Ulubiona stacja jazzowa...">
+        </div>
+        <div class="form-group">
+            <label for="station-url">URL</label>
+            <input id="station-url" type="text" maxlength="256" placeholder="http://example.com/stream.mp3">
+        </div>
+
+        <input type="hidden" id="station-id">
+        
+        <div class="form-buttons">
+            <button id="form-ok-button" onclick="submitEdit()">💾 Add station</button>
+            <button onclick="clearForm()">🧹 Clear form</button>
+        </div>
     </div>
+    <div style="text-align: center; margin: 1rem 0;">
+        <button onclick="downloadBackup()" class="backup-button">
+            📥 Save stations to SD card
+        </button>
     </div>
+
     <script>
         const stationMap = {};
+        const eqMap = {};
         let current_station = -1;
+        let current_eq = -1;
+        let draggedIndex = -1;
+
         function refreshCurrentStationAndVolume() {
-            // Nazwa stacji
             fetch("/status")
                 .then(r => r.text())
                 .then(t => {
-                    const [volx, idx, eqidx] = t.split(';'); // volume, station_id, eq_id
+                    const [volx, idx, eqidx] = t.split(';');
                     const vol = parseInt(volx);
                     let id = parseInt(idx);
+                    let eq_id = parseInt(eqidx);
 
                     if (!isNaN(vol)) {
                         document.getElementById("volume").value = vol;
@@ -288,10 +366,20 @@
                         document.getElementById("stationName").innerText = "---";
                     }
                     current_station = id;
+                    
+                    // Update equalizer selection
+                    if (!isNaN(eq_id) && current_eq !== eq_id) {
+                        current_eq = eq_id;
+                        const eqSelect = document.getElementById("equalizer-select");
+                        if (eqSelect.value != eq_id) {
+                            eqSelect.value = eq_id;
+                        }
+                    }
                 });
 
             currenttRow(current_station);
         }
+
         function refreshStationList() {
             fetch("/station_list")
             .then(r => r.text())
@@ -299,14 +387,17 @@
                 const rows = t.trim().split('\n');
                 const tbody = document.getElementById("station-list");
                 tbody.innerHTML = '';
+                
                 for (const row of rows) {
                     const [id, name, desc, url] = row.split(';');
                     const tr = document.createElement('tr');
                     tr.id = `row${parseInt(id)}`;
                     tr.className = "station-entry";
+                    tr.draggable = true;
+                    tr.dataset.index = id;
                     
-                    // Wiersz jako zwykła komórka <td>${parseInt(id) + 1}</td>
                     tr.innerHTML = `
+                        <td><span class="drag-handle">⋮⋮</span></td>
                         <td>${name}</td>
                         <td>${desc}</td>
                         <td>
@@ -316,15 +407,32 @@
                             </div>
                         </td>
                     `;
-                    tr.onclick = () => {
-                        fetch("/station_select", {
-                            method: "POST",
-                            body: id
-                        });
-                        idNr = parseInt(id);
-                        highlightRow(`row${idNr}`);
-                        document.getElementById("stationName").innerText = stationMap[idNr].desc;
+                    
+                    // Station selection (click on row, but not on drag handle)
+                    tr.onclick = (e) => {
+                        if (!e.target.classList.contains('drag-handle')) {
+                            fetch("/station_select", {
+                                method: "POST",
+                                body: id
+                            });
+                            const idNr = parseInt(id);
+                            highlightRow(`row${idNr}`);
+                            document.getElementById("stationName").innerText = stationMap[idNr].desc;
+                        }
                     };
+
+                    // Drag & Drop event listeners
+                    tr.addEventListener('dragstart', handleDragStart);
+                    tr.addEventListener('dragover', handleDragOver);
+                    tr.addEventListener('drop', handleDrop);
+                    tr.addEventListener('dragend', handleDragEnd);
+                    tr.addEventListener('dragenter', handleDragEnter);
+                    tr.addEventListener('dragleave', handleDragLeave);
+
+                    // Also add drop zone to the entire tbody for end-of-list drops
+                    tbody.addEventListener('dragover', handleDragOver);
+                    tbody.addEventListener('drop', handleDrop);
+
                     tbody.appendChild(tr);
                     stationMap[id] = {
                         name: name,
@@ -333,13 +441,218 @@
                     };
                 }
 
-                currenttRow(current_station);
+                // Setup drop zone for end-of-list drops
+                const dropZone = document.getElementById('drop-zone');
+                dropZone.addEventListener('dragover', handleDropZoneOver);
+                dropZone.addEventListener('drop', handleDropZoneEnd);
+                dropZone.addEventListener('dragenter', handleDropZoneEnter);
+                dropZone.addEventListener('dragleave', handleDropZoneLeave);
 
-                const opis = stationMap[3].desc;
-                console.log(opis);
+                currenttRow(current_station);
             });
         }
 
+        function refreshEqualizerList() {
+            fetch("/eq_list")
+            .then(r => {
+                if (!r.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return r.text();
+            })
+            .then(t => {
+                if (!t || t.trim() === '') {
+                    const eqSelect = document.getElementById("equalizer-select");
+                    eqSelect.innerHTML = '<option value="-1">No equalizers available</option>';
+                    return;
+                }
+                
+                const rows = t.trim().split('\n');
+                const eqSelect = document.getElementById("equalizer-select");
+                eqSelect.innerHTML = '';
+                
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.trim() === '') continue;
+                    
+                    const parts = row.split(';');
+                    if (parts.length >= 2) {
+                        const id = parts[0];
+                        const name = parts[1];
+                        
+                        const option = document.createElement('option');
+                        option.value = id;
+                        option.textContent = name;
+                        eqSelect.appendChild(option);
+                        
+                        eqMap[id] = {
+                            name: name
+                        };
+                    }
+                }
+                
+                // Set current equalizer
+                if (current_eq >= 0) {
+                    eqSelect.value = current_eq;
+                }
+            })
+            .catch(error => {
+                const eqSelect = document.getElementById("equalizer-select");
+                eqSelect.innerHTML = '<option value="-1">Error loading equalizers</option>';
+            });
+        }
+
+        // Drag & Drop functions
+        function handleDragStart(e) {
+            draggedIndex = parseInt(e.target.closest('tr').dataset.index);
+            e.target.closest('tr').classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', e.target.closest('tr').outerHTML);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            const targetRow = e.target.closest('tr');
+            if (targetRow && targetRow.classList.contains('station-entry')) {
+                // Remove drag-over from all rows first
+                document.querySelectorAll('.drag-over').forEach(el => {
+                    el.classList.remove('drag-over');
+                });
+                // Add to current target
+                targetRow.classList.add('drag-over');
+            }
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            const targetRow = e.target.closest('tr');
+            if (targetRow && targetRow.classList.contains('station-entry')) {
+                targetRow.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            // Only remove drag-over if we're actually leaving the row
+            const targetRow = e.target.closest('tr');
+            if (targetRow && !targetRow.contains(e.relatedTarget)) {
+                targetRow.classList.remove('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            let targetRow = e.target.closest('tr');
+            
+            // If we didn't find a target row, it might be dropped at the end
+            if (!targetRow || !targetRow.classList.contains('station-entry')) {
+                // Find the last station row
+                const allRows = document.querySelectorAll('.station-entry');
+                if (allRows.length > 0) {
+                    targetRow = allRows[allRows.length - 1];
+                }
+            }
+            
+            if (targetRow && targetRow.dataset.index) {
+                const targetIndex = parseInt(targetRow.dataset.index);
+                
+                if (draggedIndex !== targetIndex && draggedIndex !== -1) {
+                    // Send reorder request to server
+                    fetch('/station_reorder', {
+                        method: 'POST',
+                        body: `${draggedIndex},${targetIndex}`
+                    })
+                    .then(r => r.text())
+                    .then(response => {
+                        if (response === 'OK') {
+                            // Refresh the station list to reflect new order
+                            setTimeout(() => {
+                                refreshStationList();
+                                refreshCurrentStationAndVolume();
+                            }, 100);
+                        }
+                    })
+                    .catch(error => {
+                        // Handle error silently or show user notification
+                    });
+                }
+            }
+            
+            // Clean up all drag-over classes
+            document.querySelectorAll('.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+        }
+
+        function handleDragEnd(e) {
+            e.target.closest('tr').classList.remove('dragging');
+            document.querySelectorAll('.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+            draggedIndex = -1;
+        }
+
+        // Drop zone handlers for end-of-list drops
+        function handleDropZoneOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDropZoneEnter(e) {
+            e.preventDefault();
+            document.getElementById('drop-zone').classList.add('drag-over');
+            // Remove drag-over from all table rows
+            document.querySelectorAll('tr.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+        }
+
+        function handleDropZoneLeave(e) {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+                document.getElementById('drop-zone').classList.remove('drag-over');
+            }
+        }
+
+        function handleDropZoneEnd(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (draggedIndex !== -1) {
+                // Get the last station index (highest index in current list)
+                const allRows = document.querySelectorAll('.station-entry');
+                if (allRows.length > 0) {
+                    const lastRow = allRows[allRows.length - 1];
+                    const lastIndex = parseInt(lastRow.dataset.index);
+                    
+                    if (draggedIndex !== lastIndex) {
+                        // Send reorder request to move to end
+                        fetch('/station_reorder', {
+                            method: 'POST',
+                            body: `${draggedIndex},${lastIndex}`
+                        })
+                        .then(r => r.text())
+                        .then(response => {
+                            if (response === 'OK') {
+                                // Refresh the station list to reflect new order
+                                setTimeout(() => {
+                                    refreshStationList();
+                                    refreshCurrentStationAndVolume();
+                                }, 100);
+                            }
+                        })
+                        .catch(error => {
+                            // Handle error silently
+                        });
+                    }
+                }
+            }
+            
+            // Clean up
+            document.getElementById('drop-zone').classList.remove('drag-over');
+        }
 
         function clearHighlights() {
             document.querySelectorAll('.station-entry').forEach(row => {
@@ -349,7 +662,6 @@
         }
 
         function currenttRow(id) {
-            console.log("currenttRow", id);
             const row = document.getElementById(`row${parseInt(id)}`);
             if (row) {
                 clearHighlights();
@@ -368,9 +680,6 @@
         const slider = document.getElementById("volume");
         slider.addEventListener("input", function() {
             let vol = parseInt(this.value);
-          //  if (Math.abs(vol - previousVolume) < 3 && vol > 5 && previousVolume > 5) {
-          //      return;
-          //  }
             fetch("/volume", {
                 method: "POST",
                 body: vol
@@ -378,6 +687,45 @@
             previousVolume = vol;
             document.getElementById("volPercent").innerText = vol + "%";
         });
+
+        // Equalizer selection handler
+        const eqSelect = document.getElementById("equalizer-select");
+        eqSelect.addEventListener("change", function() {
+            const selectedEq = parseInt(this.value);
+            
+            if (selectedEq >= 0) {
+                fetch("/eq_select", {
+                    method: "POST",
+                    body: selectedEq.toString()
+                })
+                .then(r => r.text())
+                .then(response => {
+                    if (response === 'OK') {
+                        current_eq = selectedEq;
+                    }
+                })
+                .catch(error => {
+                    // Handle error silently
+                });
+            }
+        });
+
+        async function downloadBackup() {
+            await fetch('/backup_stations', {
+                method: 'POST',
+                body: ''
+            })
+            .then(r => r.text())
+            .then(response => {
+                if (response === 'OK') {
+                    alert(`Save stations: ${response}`);
+                } else {
+                    alert(response);
+                }
+            }).catch(error => {
+                console.error("Error downloading backup:", error);
+            });
+        }
 
         async function editStation(dataCsv) {
             await fetch('/station_edit', {
@@ -405,22 +753,23 @@
         }
 
         function submitEdit() {
-            let id   = document.getElementById("station-id").value;
+            let id = document.getElementById("station-id").value;
             const name = document.getElementById("station-name").value.trim();
             let desc = document.getElementById("station-desc").value.trim();
-            const url  = document.getElementById("station-url").value.trim();
+            const url = document.getElementById("station-url").value.trim();
+            
             if (!name || !url) {
                 alert("Name and URL are required");
                 return;
             }
             if (!desc) {
-                desc = name; // Jeśli opis jest pusty, użyj nazwy jako opisu
+                desc = name;
             }
             if(!id || isNaN(parseInt(id))) {
                 id = '-1';
             }
+            
             editStation(`${id};${name};${desc};${url}`);
-            console.log(`Edycja stacji: ${id}, ${name}, ${desc}, ${url}`);
             clearForm();
         }
 
@@ -429,8 +778,8 @@
             document.getElementById("station-name").value = "";
             document.getElementById("station-desc").value = "";
             document.getElementById("station-url").value = "";
-            document.getElementById("form-title").innerText = "Dodaj stację";
-            document.getElementById("form-ok-button").innerText = "💾 Dodaj";
+            document.getElementById("form-title").innerText = "Add station";
+            document.getElementById("form-ok-button").innerText = "💾 Add station";
         }
 
         function confirmDelete(id) {
@@ -446,9 +795,15 @@
 
         setInterval(() => {
             refreshStationList();
-        }, 15000); // np. co 15s
+        }, 15000);
 
+        setInterval(() => {
+            refreshEqualizerList();
+        }, 60000);
+
+        // Initial load
         refreshStationList();
+        refreshEqualizerList();
         refreshCurrentStationAndVolume();
     </script>
 </body>

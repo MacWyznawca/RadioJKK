@@ -13,9 +13,10 @@ static bool webServerRunning = false;
 static EXT_RAM_BSS_ATTR httpd_handle_t server = NULL;
 
 static EXT_RAM_BSS_ATTR char station_list[(128 + 128 + 32) * JKK_RADIO_MAX_STATIONS] = "";
+static EXT_RAM_BSS_ATTR char eq_list[18 * JKK_RADIO_MAX_EQ_PRESETS] = "";
 static uint8_t volume = 10;
 static int8_t station_id = -1;
-static uint8_t eq_id = -1;
+static uint8_t eq_id = 0;
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
@@ -26,6 +27,14 @@ void JkkRadioWwwSetStationId(int8_t id) {
 
 void JkkRadioWwwUpdateStationList(const char *list) {
     strncpy(station_list, list, sizeof(station_list) - 1);
+}
+
+void JkkRadioWwwUpdateEqList(const char *list) {
+    strncpy(eq_list, list, sizeof(eq_list) - 1);
+}
+
+void JkkRadioWwwSetEqId(uint8_t id) {
+    eq_id = id;
 }
 
 void JkkRadioWwwUpdateVolume(uint8_t vol) {
@@ -49,6 +58,12 @@ esp_err_t info_get_handler(httpd_req_t *req) {
 esp_err_t station_list_get_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "text/plain");
     httpd_resp_sendstr(req, station_list);
+    return ESP_OK;
+}
+
+esp_err_t eq_list_get_handler(httpd_req_t *req) {
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_sendstr(req, eq_list);
     return ESP_OK;
 }
 
@@ -93,13 +108,75 @@ esp_err_t station_edit_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t station_reorder_post_handler(httpd_req_t *req) {
+    int total_len = req->content_len;
+    char buf[32] = {0};
+    if (httpd_req_recv(req, buf, MIN(total_len, sizeof(buf))) <= 0) return ESP_FAIL;
+    
+    // Parse "oldIndex,newIndex"
+    char *oldIndex_str = strtok(buf, ",");
+    char *newIndex_str = strtok(NULL, ",");
+    
+    if (oldIndex_str && newIndex_str) {
+        int oldIndex = atoi(oldIndex_str);
+        int newIndex = atoi(newIndex_str);
+        ESP_LOGI(TAG, "station_reorder_post_handler: moving station from %d to %d", oldIndex, newIndex);
+        
+        esp_err_t result = JkkRadioReorderStation(oldIndex, newIndex);
+        if (result == ESP_OK) {
+            httpd_resp_sendstr(req, "OK");
+        } else {
+            httpd_resp_sendstr(req, "ERROR");
+        }
+    } else {
+        ESP_LOGE(TAG, "Invalid reorder parameters");
+        httpd_resp_sendstr(req, "ERROR");
+    }
+    
+    return ESP_OK;
+}
+
+esp_err_t eq_select_post_handler(httpd_req_t *req) {
+    int total_len = req->content_len;
+    char buf[8];
+    if (httpd_req_recv(req, buf, MIN(total_len, sizeof(buf))) <= 0) return ESP_FAIL;
+    uint8_t eq_index = atoi(buf);
+    ESP_LOGI(TAG, "eq_select_post_handler: selecting equalizer %d", eq_index);
+    JkkRadioSetEqualizer(eq_index);
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
+esp_err_t stations_backup_get_handler(httpd_req_t *req) {
+    ESP_LOGI(TAG, "stations_backup_get_handler called");
+
+    esp_err_t ret = JkkRadioExportStations("stations.txt");
+    if (ret == ESP_ERR_NOT_FOUND) {
+        httpd_resp_sendstr(req, "Open file error, check SD Card");
+        return ESP_FAIL;
+    }
+    if (ret != ESP_OK) {
+        httpd_resp_sendstr(req, "An error occurred");
+        return ESP_FAIL;
+    }
+    httpd_resp_sendstr(req, "OK");
+
+    ESP_LOGI(TAG, "Stations backup sent successfully");
+    return ESP_OK;
+}
+
 httpd_uri_t uri_root = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler };
 httpd_uri_t uri_station_name = { .uri = "/status", .method = HTTP_GET, .handler = info_get_handler };
 httpd_uri_t uri_volume = { .uri = "/volume", .method = HTTP_POST, .handler = volume_post_handler };
 httpd_uri_t uri_station_list = { .uri = "/station_list", .method = HTTP_GET, .handler = station_list_get_handler };
+httpd_uri_t uri_eq_list = { .uri = "/eq_list", .method = HTTP_GET, .handler = eq_list_get_handler };
 httpd_uri_t uri_station_select = { .uri = "/station_select", .method = HTTP_POST, .handler = station_select_post_handler };
 httpd_uri_t uri_station_delete = { .uri = "/station_delete", .method = HTTP_POST, .handler = station_delete_post_handler };
 httpd_uri_t uri_station_edit = { .uri = "/station_edit", .method = HTTP_POST, .handler = station_edit_post_handler };
+httpd_uri_t uri_station_reorder = { .uri = "/station_reorder", .method = HTTP_POST, .handler = station_reorder_post_handler };
+httpd_uri_t uri_eq_select = { .uri = "/eq_select", .method = HTTP_POST, .handler = eq_select_post_handler };
+httpd_uri_t uri_stations_backup = { .uri = "/backup_stations", .method = HTTP_POST, .handler = stations_backup_get_handler };
+
 
 #define MDNS_INSTANCE "radio jkk web server"
 #define MDNS_HOST_NAME "RadioJKK"
@@ -130,6 +207,7 @@ void start_web_server(void) {
     config.stack_size = 4096;
     config.server_port = 80;
     config.max_open_sockets = 10;
+    config.max_uri_handlers = 12;
     config.task_priority = tskIDLE_PRIORITY + 1;
     config.task_caps = MALLOC_CAP_INTERNAL| MALLOC_CAP_8BIT; // MALLOC_CAP_SPIRAM
 
@@ -138,9 +216,13 @@ void start_web_server(void) {
         httpd_register_uri_handler(server, &uri_station_name);
         httpd_register_uri_handler(server, &uri_volume);
         httpd_register_uri_handler(server, &uri_station_list);
+        httpd_register_uri_handler(server, &uri_eq_list);
         httpd_register_uri_handler(server, &uri_station_select);
         httpd_register_uri_handler(server, &uri_station_delete);
         httpd_register_uri_handler(server, &uri_station_edit);
+        httpd_register_uri_handler(server, &uri_station_reorder);
+        httpd_register_uri_handler(server, &uri_eq_select);
+        httpd_register_uri_handler(server, &uri_stations_backup);
         ESP_LOGI(TAG, "Serwer WWW uruchomiony");
 
         initialise_mdns();
