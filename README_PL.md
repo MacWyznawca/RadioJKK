@@ -1,13 +1,13 @@
 # RadioJKK32 - Wielofunkcyjny internetowy odtwarzacz radiowy
 
-**RadioJKK32** to zaawansowany projekt internetowego radia opartego na ESP32-A1S, zaprojowany w celu zapewnienia płynnego słuchania muzyki z szeroką gamą funkcji i możliwości sterowania.
+**RadioJKK32** to zaawansowany projekt internetowego radia opartego na ESP32-A1S (ESP32-A1S Audio Kit), zbudowany z użyciem bibliotek ESP-ADF i zaprojektowany w celu zapewnienia płynnego słuchania muzyki z szeroką gamą funkcji i możliwości sterowania.
 
 ## 🌟 Główne funkcje
 
 ### 🌐 **Lokalny serwer WWW - NOWOŚĆ!**
-- **Pełne zdalne sterowanie** przez przeglądarkę internetową
+- **Zdalne sterowanie** przez przeglądarkę internetową
 - **Modyfikacja listy stacji radiowych** w czasie rzeczywistym
-- **Automatyczne wykrywanie w sieci** dzięki mDNS/Bonjour
+- **Automatyczne wykrywanie w sieci** dzięki mDNS/Bonjour/NetBIOS
 - **Responsywny interfejs** działający na wszystkich urządzeniach
 - **Dostęp lokalny** bez potrzeby połączenia z internetem
 
@@ -19,12 +19,11 @@
 
 ### 🔧 Przetwarzanie dźwięku
 - **10-pasmowy equalizer** z predefiniowanymi ustawieniami
-- Resampling dla optymalnej jakości dźwięku
 - Wskaźnik poziomu audio w czasie rzeczywistym
-- Możliwość włączania/wyłączania procesingu audio
+- Możliwość włączania/wyłączania procesingu (equalizera) audio
 
 ### 💾 Nagrywanie
-- **Nagrywanie do kart SD** w formacie AAC
+- **Nagrywanie na kartę SD** w formacie AAC
 - Automatyczne tworzenie struktury folderów według daty
 - Pliki informacyjne z metadanymi nagrań
 - Wsparcie dla kart SD o dużej pojemności
@@ -33,11 +32,11 @@
 - **Lokalny serwer WWW** - główny sposób sterowania
 - **OLED I2C (SSD1306/SH1107)** z graficznym interfejsem LVGL
 - **Klawiatura GPIO** z obsługą długich naciśnięć
-- **Kody QR** dla łatwej konfiguracji WiFi
+- **Kody QR** (opcja z wyświetlaczem) dla łatwej konfiguracji WiFi
 
 ### 🔗 Łączność
-- **WiFi** z automatycznym provisioningiem przez SoftAP
-- **mDNS/Bonjour** dla łatwego odnajdywania w sieci
+- **WiFi** z automatycznym provisioningiem przez aplikację ESP SoftAP Prov
+- **mDNS/Bonjour, NetBIOS** dla łatwego odnajdywania w sieci
 - **SNTP** dla synchronizacji czasu
 - Obsługa konfiguracji przez aplikację ESP SoftAP
 
@@ -49,7 +48,7 @@
 ## 🚀 Jak zacząć
 
 ### Wymagania sprzętowe
-- **ESP32-A1S Audio Kit** (wariant 5 lub 7)
+- **ESP32-A1S Audio Kit**
 - **Karta microSD** (opcjonalnie)
 - **Wyświetlacz OLED I2C** (opcjonalnie)
 
@@ -59,21 +58,21 @@ Przykładowa oferta: [App: **AI Thinker ESP32-A1S**](https://s.click.aliexpress.
 
 #### Zalecany wyświetlacz
 
-OLED SSD1306 128x64 z magistralą i2c. Dobrze, jeśli ma wbudowane 4 przyciski lub zapewnij takie przyciski osobno dla wygodniejszego użytkowania np. [OLED SSD1306 128x64 z czterema przyciskami](https://s.click.aliexpress.com/e/_oFKo8XC)
+OLED SSD1306 128x64 z magistralą I2C. Dobrze, jeśli ma wbudowane 4 przyciski lub zapewnij takie przyciski osobno dla wygodniejszego użytkowania, np. [OLED SSD1306 128x64 z czterema przyciskami](https://s.click.aliexpress.com/e/_oFKo8XC)
 
 [![Przykładowy wyświetlacz](img/OLED-i2c.jpeg)](https://s.click.aliexpress.com/e/_oFKo8XC)
 
-#### Połączenie wuświetlacza:
+#### Połączenie wyświetlacza:
 - SDA: **GPIO18**
 - SCL: **GPIO5**
 
 #### Połączenia opcjonalnych przycisków zewnętrznych:
-- KEY4 [Góra] GPIO23
-- KEY3 [Dół] GPIO19
-- KEY2 [Eq/Rec] GPIO13/MTCK (uwaga: zmień ustawienia przełączników dip)
-- KEY1 [Stacje] GPIO22
+- KEY4 [Góra] **GPIO23**
+- KEY3 [Dół] **GPIO19**
+- KEY2 [Eq/Rec] **GPIO13/MTCK** (uwaga: zmień ustawienia przełączników DIP)
+- KEY1 [Stacje] **GPIO22**
 
-![połączenie wyświetlacza i2c i klawiatury zewnętrznej](img/ESP32A1S-OLED-connections.jpeg)
+![Połączenie wyświetlacza I2C i klawiatury zewnętrznej](img/ESP32A1S-OLED-connections.jpeg)
 
 ### Instalacja
 1. **Klonowanie repozytorium:**
@@ -84,10 +83,7 @@ OLED SSD1306 128x64 z magistralą i2c. Dobrze, jeśli ma wbudowane 4 przyciski l
 
 2. **Konfiguracja ESP-IDF i ESP-ADF:**
 Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html#quick-start). Repozytorium [ESP-ADF na GitHub](https://github.com/espressif/esp-adf).  
-   ```bash
-   export ADF_PATH=/ścieżka/do/esp-adf
-   export IDF_PATH=/ścieżka/do/esp-idf
-   ```
+
 **Uwaga**: dla ESP-IDF 5.4.x i 5.5.x użyj:
    ```bash
    cd $IDF_PATH 
@@ -97,7 +93,14 @@ Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/
 3. **Kompilacja i wgranie:**
    ```bash
    idf.py build
-   idf.py flash monitor
+   idf.py -p [nazwa/ścieżka do portu COM] flash monitor
+   ```
+   Wyjście z monitora: Control+] (CTRL + nawias kwadratowy zamykający)
+
+4. **Użycie prekompilowanego pliku:**  
+   Wgraj dowolnym narzędziem do flashowania ESP32 wybrany plik z folderu `bin` pod adres 0x0, np. komendą:   
+   ```bash
+   esptool.py -p /dev/cu.usbserial-0001 write_flash 0x0 bin/RadioJKK_v0.bin
    ```
 
 ## 📋 Konfiguracja
@@ -106,18 +109,18 @@ Opis instalacji [ESP-ADF](https://docs.espressif.com/projects/esp-adf/en/latest/
 W przypadku skanowania kodu **QR** przejdź do punktu 3.
 1. **Przy pierwszym uruchomieniu** urządzenie utworzy punkt dostępowy "JKK..."
 2. **Połącz się** z tym punktem i użyj aplikacji ESP SoftAP
-3. **Zeskanuj kod QR** wyświetlany na OLED lub wpisz dane ręcznie. Pin: jkk
+3. **Zeskanuj kod QR** wyświetlany na OLED lub wpisz dane ręcznie. PIN: jkk
 4. **Wprowadź dane WiFi** swojej sieci
 
-**Uwaga**: po pierwsze konfiguracji, jeżeli serwer WWW nie odpowiada, zalecam restart urządzenia.
+**Uwaga**: po pierwszej konfiguracji, jeżeli serwer WWW nie odpowiada, zalecam restart urządzenia.
 
-**Alternatywnie za poomocą karty SD**:
+**Alternatywnie za pomocą karty SD**:
 
 Utwórz plik `settings.txt` z nazwą sieci WiFi i hasłem oddzielonymi średnikiem (jedna linia tekstu):  
 ```
 mySSID;myPassword
 ```
-Jeżeli nie chcesz uruchamiać serwera WWW dodaj na końcu po średniku: wwwoff
+Jeżeli nie chcesz uruchamiać serwera WWW, dodaj na końcu po średniku: wwwoff
 ```
 mySSID;myPassword;wwwoff
 ```
@@ -145,10 +148,12 @@ rock;4;5;3;1;-1;-3;-1;3;4;0
 ```
 Zawsze 10 ustawień korekcji w dB
 
+**Uwaga**: Wszystkie pliki konfiguracyjne należy zapisywać w głównym katalogu karty SD.
+
 ## 🌐 Serwer WWW
 
 ### Dostęp do serwera
-- **Automatyczne wykrywanie:** `http://radiojkk32.local` (dzięki mDNS/Bonjour)
+- **Automatyczne wykrywanie:** `http://radiojkk32.local` (dzięki mDNS/Bonjour). NetBIOS: RadioJKK
 - **Bezpośredni IP:** `http://[adres-ip-urządzenia]`
 - **Port:** 80 (domyślny)
 
@@ -157,27 +162,25 @@ Zawsze 10 ustawień korekcji w dB
 - 🔊 **Regulacja głośności** w czasie rzeczywistym
 - 📝 **Zmiana stacji** z pełną listą dostępnych opcji
 - 📋 **Edycja listy stacji** bez potrzeby fizycznego dostępu
-- 📱 **Responsywny design** dla wszystkich urządzeń
 
 ## 🎛️ Obsługa przycisków (tryb bez OLED)
 
 | Przycisk | Krótkie naciśnięcie | Długie naciśnięcie |
 |----------|-------------------|-------------------|
-| **PLAY** | Poprzednia stacja | Ulubiona stacja |
-| **SET** | Następna stacja | Pierwsza stacja |
-| **MODE** | Następny equalizer | Reset equalizera |
-| **REC** | Start nagrywania | Stop nagrywania |
-| **VOL+** | Zwiększ głośność | - |
-| **VOL-** | Zmniejsz głośność | Wycisz |
+| **PLAY** KEY3 | Poprzednia stacja | Ulubiona stacja |
+| **SET** KEY4 | Następna stacja | Pierwsza stacja |
+| **MODE** KEY2 | Następny equalizer | Reset equalizera |
+| **REC** KEY1 | Start nagrywania | Stop nagrywania |
+| **VOL+** KEY6| Zwiększ głośność | - |
+| **VOL-** KEY5 | Zmniejsz głośność | Wycisz |
 
 ## 🖥️ Obsługa OLED (gdy włączone)
 
 | Przycisk | Krótkie naciśnięcie | Długie naciśnięcie |
 |----------|-------------------|-------------------|
-| **MODE** | Lista stacji | Potwierdź |
-| **SET** | Lista equalizer | Nagrywanie |
-| **VOL+/-** | Nawigacja w menu / Głośność | Mute / Ulubiona |
-
+| **MODE** KEY1 | Lista stacji/Potwierdź | Zamknij [ESC] |
+| **SET** KEY2 | Lista equalizer | Nagrywanie start/stop |
+| **VOL+/-** KEY4/KEY3 | Nawigacja w menu / Głośność | Wyciszenie / Ulubiona |
 
 ## 🔧 Opcje konfiguracji
 
@@ -193,7 +196,7 @@ idf.py menuconfig
 - **Typ przycisków:** GPIO 
 - **Wariant płytki:** ESP32-A1S 
 - **Karta SD:** włącz/wyłącz
-- **Klawiszę zewnętrzne:** opcjonalne
+- **Klawisze zewnętrzne:** opcjonalne
 
 ## 🌍 Internacjonalizacja
 
@@ -225,4 +228,4 @@ Ten projekt jest licencjonowany na licencji **MIT License** - zobacz plik [LICEN
 
 ---
 
-**RadioJKK32** - Radio internetowe z kontrolą przez przeglądarkę! 🎵
+**RadioJKK32** - Radio internetowe z kontrolą przez przeglądarkę 🎵
