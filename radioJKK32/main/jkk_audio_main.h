@@ -17,6 +17,13 @@ extern "C" {
 
 #define JKK_MAX_PIPELINE_ELEMENTS (8)
 
+typedef enum {
+    JKK_AUDIO_STATE_STOPPED = 0,
+    JKK_AUDIO_STATE_PLAYING,
+    JKK_AUDIO_STATE_PAUSED,
+    JKK_AUDIO_STATE_ERROR
+} jkk_audio_state_t;
+
 typedef struct JkkAudioMain_s {
     audio_pipeline_handle_t pipeline;
     audio_element_handle_t input;
@@ -36,7 +43,45 @@ typedef struct JkkAudioMain_s {
     int sample_rate; // sample rate of audio stream
     int bits; // bits per sample
     int raw_split_nr; // number of raw split outputs
+    jkk_audio_state_t audio_state;
+    bool audio_was_paused; // true if audio was paused before
 } JkkAudioMain_t;
+
+/**
+ * @brief Get current audio playback state
+ * @return Current audio state
+ */
+jkk_audio_state_t JkkAudioGetState(void);
+
+/**
+ * @brief Start/Resume audio playback
+ * @return ESP_OK on success, error code on failure
+ */
+esp_err_t JkkAudioPlay(void);
+
+/**
+ * @brief Pause audio playback
+ * @return ESP_OK on success, error code on failure
+ */
+esp_err_t JkkAudioPause(void);
+
+/**
+ * @brief Stop audio playback
+ * @return ESP_OK on success, error code on failure
+ */
+esp_err_t JkkAudioStop(void);
+
+/**
+ * @brief Check if audio is currently playing
+ * @return true if playing, false otherwise
+ */
+bool JkkAudioIsPlaying(void);
+
+/**
+ * @brief Toggle play/pause state
+ * @return ESP_OK on success, error code on failure
+ */
+esp_err_t JkkAudioTogglePlayPause(void);
 
 
 esp_err_t JkkAudioEqSetAll(const int *eqGainArray);

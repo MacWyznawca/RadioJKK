@@ -48,8 +48,8 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 }
 
 esp_err_t info_get_handler(httpd_req_t *req) {
-    char current_status[128 + 128 + 32] = {0};
-    snprintf(current_status, sizeof(current_status), "%d;%d;%d", volume, station_id, eq_id);
+    char current_status[128 + 128 + 40] = {0};
+    snprintf(current_status, sizeof(current_status), "%d;%d;%d;%d", volume, station_id, eq_id, JkkRadioIsPlaying() ? 1 : 0);
     httpd_resp_set_type(req, "text/plain");
     httpd_resp_sendstr(req, current_status);
     return ESP_OK;
@@ -83,8 +83,13 @@ esp_err_t station_select_post_handler(httpd_req_t *req) {
     char buf[8];
     if (httpd_req_recv(req, buf, MIN(total_len, sizeof(buf))) <= 0) return ESP_FAIL;
     uint16_t station = atoi(buf);
-    JkkRadioSetStation(station);
-    httpd_resp_sendstr(req, "OK");
+    if(JkkAudioIsPlaying()){
+        JkkRadioSetStation(station);
+        httpd_resp_sendstr(req, "OK");
+    }
+    else {
+        httpd_resp_sendstr(req, "Audio not playing");
+    }
     return ESP_OK;
 }
 
@@ -146,25 +151,7 @@ esp_err_t eq_select_post_handler(httpd_req_t *req) {
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
-/*
-esp_err_t stations_safe_get_handler(httpd_req_t *req) {
-    ESP_LOGI(TAG, "stations_safe_get_handler called");
 
-    esp_err_t ret = JkkRadioExportStations("stat_web.txt");
-    if (ret == ESP_ERR_NOT_FOUND) {
-        httpd_resp_sendstr(req, "Open file error, check SD Card");
-        return ESP_FAIL;
-    }
-    if (ret != ESP_OK) {
-        httpd_resp_sendstr(req, "An error occurred");
-        return ESP_FAIL;
-    }
-    httpd_resp_sendstr(req, "OK");
-
-    ESP_LOGI(TAG, "Stations save successfully");
-    return ESP_OK;
-}
-*/
 esp_err_t stations_backup_get_handler(httpd_req_t *req) {
     ESP_LOGI(TAG, "stations_backup_get_handler called");
     
@@ -201,6 +188,18 @@ esp_err_t stations_backup_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t stop_post_handler(httpd_req_t *req) {
+    JkkRadioStop();
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
+esp_err_t toggle_play_pause_post_handler(httpd_req_t *req) {
+    JkkRadioTogglePlayPause();
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
 httpd_uri_t uri_root = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler };
 httpd_uri_t uri_station_name = { .uri = "/status", .method = HTTP_GET, .handler = info_get_handler };
 httpd_uri_t uri_volume = { .uri = "/volume", .method = HTTP_POST, .handler = volume_post_handler };
@@ -211,8 +210,9 @@ httpd_uri_t uri_station_delete = { .uri = "/station_delete", .method = HTTP_POST
 httpd_uri_t uri_station_edit = { .uri = "/station_edit", .method = HTTP_POST, .handler = station_edit_post_handler };
 httpd_uri_t uri_station_reorder = { .uri = "/station_reorder", .method = HTTP_POST, .handler = station_reorder_post_handler };
 httpd_uri_t uri_eq_select = { .uri = "/eq_select", .method = HTTP_POST, .handler = eq_select_post_handler };
-// httpd_uri_t uri_stations_save = { .uri = "/save_stations", .method = HTTP_POST, .handler = stations_safe_get_handler };
 httpd_uri_t uri_stations_backup = { .uri = "/backup_stations", .method = HTTP_GET, .handler = stations_backup_get_handler };
+httpd_uri_t uri_stop = { .uri = "/stop", .method = HTTP_POST, .handler = stop_post_handler };
+httpd_uri_t uri_toggle = { .uri = "/toggle", .method = HTTP_POST, .handler = toggle_play_pause_post_handler };
 
 
 #define MDNS_INSTANCE "radio jkk web server"
@@ -243,8 +243,8 @@ void start_web_server(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 4096;
     config.server_port = 80;
-    config.max_open_sockets = 10;
-    config.max_uri_handlers = 12;
+    config.max_open_sockets = 15;
+    config.max_uri_handlers = 14;
     config.task_priority = tskIDLE_PRIORITY + 1;
     config.task_caps = MALLOC_CAP_INTERNAL| MALLOC_CAP_8BIT; // MALLOC_CAP_SPIRAM
 
@@ -259,8 +259,9 @@ void start_web_server(void) {
         httpd_register_uri_handler(server, &uri_station_edit);
         httpd_register_uri_handler(server, &uri_station_reorder);
         httpd_register_uri_handler(server, &uri_eq_select);
-      //  httpd_register_uri_handler(server, &uri_stations_save);
         httpd_register_uri_handler(server, &uri_stations_backup);
+        httpd_register_uri_handler(server, &uri_stop);
+        httpd_register_uri_handler(server, &uri_toggle);
         ESP_LOGI(TAG, "Serwer WWW uruchomiony");
 
         initialise_mdns();

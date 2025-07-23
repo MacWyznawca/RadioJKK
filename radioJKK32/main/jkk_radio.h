@@ -64,6 +64,10 @@ typedef enum  {
 typedef enum  {
     JKK_RADIO_CMD_SET_STATION = 100, 
     JKK_RADIO_CMD_SET_EQUALIZER = 101, 
+    JKK_RADIO_CMD_PLAY = 102,
+    JKK_RADIO_CMD_PAUSE = 103,
+    JKK_RADIO_CMD_STOP = 104,
+    JKK_RADIO_CMD_TOGGLE_PLAY_PAUSE = 105,
     JKK_RADIO_CMD_SET_UNKNOW, 
 } customCmd_e;
 
@@ -152,6 +156,31 @@ esp_err_t JkkRadioExportStations(const char *filename);
 
 esp_err_t JkkRadioSendMessageToMain(int mess, int command);
 
+/**
+ * @brief Start/Resume radio playback
+ */
+void JkkRadioPlay(void);
+
+/**
+ * @brief Pause radio playback
+ */
+void JkkRadioPause(void);
+
+/**
+ * @brief Stop radio playback
+ */
+void JkkRadioStop(void);
+
+/**
+ * @brief Toggle play/pause state
+ */
+void JkkRadioTogglePlayPause(void);
+
+/**
+ * @brief Get current playback state
+ * @return Current audio state
+ */
+bool JkkRadioIsPlaying(void);
 
 #ifdef __cplusplus
 }

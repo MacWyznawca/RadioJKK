@@ -33,6 +33,7 @@ static const char *TAG = "A_Main";
 #define NUMBER_BAND (10)
 
 static  JkkAudioMain_t audioMain = {0}; // EXT_RAM_BSS_ATTR
+
 static int _http_stream_event_handle(http_stream_event_msg_t *msg){
     if (msg->event_id == HTTP_STREAM_RESOLVE_ALL_TRACKS) {
         return ESP_OK;
@@ -46,6 +47,138 @@ static int _http_stream_event_handle(http_stream_event_msg_t *msg){
     return ESP_OK;
 }
 
+jkk_audio_state_t JkkAudioGetState(void) {
+    return audioMain.audio_state;
+}
+
+bool JkkAudioIsPlaying(void) {
+    if (audioMain.pipeline == NULL) {
+        return false;
+    }
+    
+    audio_element_state_t input_state = audio_element_get_state(audioMain.input);
+    audio_element_state_t output_state = audio_element_get_state(audioMain.output);
+    
+    return (input_state == AEL_STATE_RUNNING && output_state == AEL_STATE_RUNNING); 
+}
+
+esp_err_t JkkAudioPlay(void) {
+    if (audioMain.pipeline == NULL) {
+        ESP_LOGE(TAG, "Audio pipeline is not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    esp_err_t ret = ESP_OK;
+    
+    if (audioMain.audio_state == JKK_AUDIO_STATE_PAUSED) {
+        // Resume from pause
+        ESP_LOGI(TAG, "Resuming audio playback");
+        ret = audio_pipeline_resume(audioMain.pipeline);
+        if (ret == ESP_OK) {
+            audioMain.audio_state = JKK_AUDIO_STATE_PLAYING;
+            audioMain.audio_was_paused = false;
+        }
+    } else if (audioMain.audio_state == JKK_AUDIO_STATE_STOPPED) {
+        // Start playback
+        ESP_LOGI(TAG, "Starting audio playback");
+        ret = audio_pipeline_run(audioMain.pipeline);
+        if (ret == ESP_OK) {
+            audioMain.audio_state = JKK_AUDIO_STATE_PLAYING;
+            audioMain.audio_was_paused = false;
+        }
+    } else {
+        ESP_LOGW(TAG, "Audio is already playing");
+        return ESP_OK;
+    }
+    
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start/resume audio: %s", esp_err_to_name(ret));
+        audioMain.audio_state = JKK_AUDIO_STATE_ERROR;
+    }
+    
+    return ret;
+}
+
+esp_err_t JkkAudioPause(void) {
+    if (audioMain.pipeline == NULL) {
+        ESP_LOGE(TAG, "Audio pipeline is not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    if (audioMain.audio_state != JKK_AUDIO_STATE_PLAYING) {
+        ESP_LOGW(TAG, "Audio is not playing");
+        return ESP_OK;
+    }
+    
+    ESP_LOGI(TAG, "Pausing audio playback");
+    esp_err_t ret = audio_pipeline_pause(audioMain.pipeline);
+    
+    if (ret == ESP_OK) {
+        audioMain.audio_state = JKK_AUDIO_STATE_PAUSED;
+        audioMain.audio_was_paused = true;
+    } else {
+        ESP_LOGE(TAG, "Failed to pause audio: %s", esp_err_to_name(ret));
+        audioMain.audio_state = JKK_AUDIO_STATE_ERROR;
+    }
+    
+    return ret;
+}
+
+esp_err_t JkkAudioStop(void) {
+    if (audioMain.pipeline == NULL) {
+        ESP_LOGE(TAG, "Audio pipeline is not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    if (audioMain.audio_state == JKK_AUDIO_STATE_STOPPED) {
+        ESP_LOGW(TAG, "Audio is already stopped");
+        return ESP_OK;
+    }
+    
+    ESP_LOGI(TAG, "Stopping audio playback");
+    esp_err_t ret = ESP_OK;
+    
+    ret |= audio_pipeline_stop(audioMain.pipeline);
+    ret |= audio_pipeline_wait_for_stop(audioMain.pipeline);
+    ret |= audio_pipeline_reset_ringbuffer(audioMain.pipeline);
+    ret |= audio_pipeline_reset_elements(audioMain.pipeline);
+    ret |= audio_pipeline_reset_items_state(audioMain.pipeline);
+    
+    if (ret == ESP_OK) {
+        audioMain.audio_state = JKK_AUDIO_STATE_STOPPED;
+        audioMain.audio_was_paused = false;
+    } else {
+        ESP_LOGE(TAG, "Failed to stop audio: %s", esp_err_to_name(ret));
+        audioMain.audio_state = JKK_AUDIO_STATE_ERROR;
+    }
+    
+    return ret;
+}
+
+esp_err_t JkkAudioTogglePlayPause(void) {
+    if (audioMain.audio_state == JKK_AUDIO_STATE_PLAYING) {
+        return JkkAudioPause();
+    } else if (audioMain.audio_state == JKK_AUDIO_STATE_PAUSED || audioMain.audio_state == JKK_AUDIO_STATE_STOPPED) {
+        return JkkAudioPlay();
+    }
+    
+    ESP_LOGW(TAG, "Cannot toggle play/pause in current state: %d", audioMain.audio_state);
+    return ESP_ERR_INVALID_STATE;
+}
+
+esp_err_t JkkAudioRestartStream(void) {
+    if(audioMain.pipeline == NULL) {
+        ESP_LOGE(TAG, "Audio pipeline is not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    esp_err_t ret = JkkAudioStop();
+    if (ret == ESP_OK) {
+        ret = JkkAudioPlay();
+    }
+    
+    return ret;
+}
 
 esp_err_t JkkAudioSetUrl(const char *url, bool out) {
     if((((out ? audioMain.output_type : audioMain.input_type) != 3) && ((out ? audioMain.output_type : audioMain.input_type) != 2)) || (out ? audioMain.output : audioMain.input) == NULL) {
@@ -105,20 +238,6 @@ esp_err_t JkkAudioI2sSetClk(int rate, int bits, int ch, bool out) {
         audioMain.bits = bits;
         audioMain.channels = ch;
     }
-    return ret;
-}
-
-esp_err_t JkkAudioRestartStream(void) {
-    if(audioMain.pipeline == NULL) {
-        ESP_LOGE(TAG, "Audio pipeline is not initialized");
-        return ESP_ERR_INVALID_STATE;
-    }
-    esp_err_t ret = audio_pipeline_stop(audioMain.pipeline);
-    ret |= audio_pipeline_wait_for_stop(audioMain.pipeline);
-    ret |= audio_pipeline_terminate(audioMain.pipeline);
-    ret |= audio_pipeline_reset_ringbuffer(audioMain.pipeline);
-    ret |= audio_pipeline_reset_elements(audioMain.pipeline);
-    ret |= audio_pipeline_run(audioMain.pipeline);
     return ret;
 }
 
@@ -412,7 +531,6 @@ esp_err_t JkkAudioMainOnOffProcessing(bool on, audio_event_iface_handle_t evt){
     esp_err_t ret = audio_pipeline_stop(audioMain.pipeline);
     ret |= audio_pipeline_wait_for_stop(audioMain.pipeline);
     ret |= audio_pipeline_reset_ringbuffer(audioMain.pipeline);
-  //  ret |= audio_pipeline_reset_items_state(audioMain.pipeline);
 
     if(ret != ESP_OK) return ret;
 

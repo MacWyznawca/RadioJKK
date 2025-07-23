@@ -220,6 +220,32 @@
             flex-wrap: nowrap;
         }
 
+        .control-button {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: background 0.2s ease-in-out;
+            min-width: 70px;
+            white-space: nowrap;
+        }
+
+        .control-button:hover {
+            background-color: #0056b3;
+        }
+
+        .control-button:active {
+            background-color: #004494;
+        }
+
+        .control-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
         @media (max-width: 600px) {
             body {
                 font-size: 18px;
@@ -249,6 +275,12 @@
                 max-width: none;
                 margin: 0.5rem 0;
                 padding: 0.5rem 0;
+            }
+
+            .control-button {
+                padding: 0.7rem 1.3rem;
+                font-size: 1.1rem;
+                min-width: 90px;
             }
 
             .station-entry {
@@ -288,6 +320,18 @@
                     <option value="-1">Loading...</option>
                 </select>
             </div>
+        </div>
+    </div>
+
+    <div style="display: flex; justify-content: center; align-items: center; margin: 1rem auto; gap: 1rem; width: 95%; max-width: 800px;">
+        <button id="play-btn" onclick="togglePlayPause()" class="control-button">
+            ▶️ Play
+        </button>
+        <button id="stop-btn" onclick="stopPlayback()" class="control-button">
+            ⏹️ Stop
+        </button>
+        <div style="flex: 1; text-align: right;">
+            <span id="playback-status" style="font-weight: bold; font-size: 1.1rem;">⏸️ Stopped</span>
         </div>
     </div>
 
@@ -341,15 +385,28 @@
         let current_station = -1;
         let current_eq = -1;
         let draggedIndex = -1;
+        let isPlaying = false;
 
         function refreshCurrentStationAndVolume() {
             fetch("/status")
                 .then(r => r.text())
                 .then(t => {
-                    const [volx, idx, eqidx] = t.split(';');
+                    const [volx, idx, eqidx, playing] = t.split(';');
                     const vol = parseInt(volx);
                     let id = parseInt(idx);
                     let eq_id = parseInt(eqidx);
+                    isPlaying = parseInt(playing) == 1;
+
+                    const playBtn = document.getElementById("play-btn");
+                    const statusSpan = document.getElementById("playback-status");
+
+                    if (isPlaying) {
+                        playBtn.innerHTML = "⏸️ Pause";
+                        statusSpan.innerHTML = "▶️ Playing";
+                    } else {
+                        playBtn.innerHTML = "▶️ Play";
+                        statusSpan.innerHTML = "⏸️ Stopped";
+                    }
 
                     if (!isNaN(vol)) {
                         document.getElementById("volume").value = vol;
@@ -411,13 +468,19 @@
                     // Station selection (click on row, but not on drag handle)
                     tr.onclick = (e) => {
                         if (!e.target.classList.contains('drag-handle')) {
-                            fetch("/station_select", {
-                                method: "POST",
-                                body: id
-                            });
-                            const idNr = parseInt(id);
-                            highlightRow(`row${idNr}`);
-                            document.getElementById("stationName").innerText = stationMap[idNr].desc;
+                            if(isPlaying){
+                                fetch("/station_select", {
+                                    method: "POST",
+                                    body: id
+                                });
+                                const idNr = parseInt(id);
+                                highlightRow(`row${idNr}`);
+                                document.getElementById("stationName").innerText = stationMap[idNr].desc;
+                            }
+                            else {
+                                document.getElementById("stationName").innerText = "No play, no change";
+                                //change station while playback is stopped");
+                            }
                         }
                     };
 
@@ -499,6 +562,39 @@
             .catch(error => {
                 const eqSelect = document.getElementById("equalizer-select");
                 eqSelect.innerHTML = '<option value="-1">Error loading equalizers</option>';
+            });
+        }
+
+        function togglePlayPause() {
+            fetch("/toggle", {
+                method: "POST",
+                body: ""
+            })
+            .then(r => r.text())
+            .then(response => {
+                if (response === 'OK') {
+                    setTimeout(refreshCurrentStationAndVolume, 200);
+                }
+            })
+            .catch(error => {
+                console.error('Error toggling playback:', error);
+            });
+        }
+
+        function stopPlayback() {
+            fetch("/stop", {
+                method: "POST", 
+                body: ""
+            })
+            .then(r => r.text())
+            .then(response => {
+                if (response === 'OK') {
+                    // Update status immediately for better UX
+                    setTimeout(refreshCurrentStationAndVolume, 200);
+                }
+            })
+            .catch(error => {
+                console.error('Error stopping playback:', error);
             });
         }
 
