@@ -831,7 +831,7 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
         jkkRadio.whatToSave &= ~(JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME);
     }
     if(jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_STATION_LIST){
-        JkkRadioExportStations("station.txt");
+        JkkRadioExportStations("stations.txt");
         jkkRadio.whatToSave &= ~JKK_RADIO_TO_SAVE_STATION_LIST;
     }
 }
