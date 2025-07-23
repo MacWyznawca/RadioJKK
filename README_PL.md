@@ -6,21 +6,22 @@
 
 ### 🌐 **Lokalny serwer WWW - NOWOŚĆ!**
 
-- **Zdalne sterowanie** przez przeglądarkę internetową: głośność, wybór stacji, zmiana equalizera **Nowość!**
-- **Edycja listy stacji radiowych** - zmiany, dodawanie, usuwanie i zmiana kolejności **Nowość!**
+- **Zdalne sterowanie** przez przeglądarkę internetową: głośność, wybór stacji, zmiana equalizera
+- **Edycja listy stacji radiowych** - zmiany, dodawanie, usuwanie i zmiana kolejności
 - **Automatyczne wykrywanie w sieci** dzięki mDNS/Bonjour/NetBIOS
 - **Responsywny interfejs** działający na wszystkich urządzeniach
 - **Dostęp lokalny** bez potrzeby połączenia z Internetem
-- **Kopia na karcie SD** - możliwość zapisu aktualnej listy stacji do pliku
+- **Automatyczny zapis na karcie SD** aktualnej listy stacji
 
 ### Inne nowości
 
-- Zwiększona maksymalna liczba stacji do 50
-- Więcej wbudowanych equalizerów (10)
-- Maksymalna liczba equalizerów zwiększona do 20
 - Zmiana kolejności stacji radiowych przez WWW
-- Zapis aktualnej listy stacji z pamięci flash urządzenia (NVS) na kartę SD
+- Automatyczny zapis aktualnej listy stacji z pamięci flash urządzenia (NVS) na kartę SD
+- Możliwość pobrania aktualniej listy stacji w formacie .csv przez przeglądarkę
 - Wybór equalizera w przeglądarce
+- Zwiększona maksymalna liczba stacji do 50
+- Maksymalna liczba equalizerów zwiększona do 20
+- Więcej wbudowanych equalizerów (10)
 
 ### 📻 Odtwarzanie audio
 
@@ -86,8 +87,6 @@ Przykładowa oferta: [App: ](https://s.click.aliexpress.com/e/_ooTic0A)[**AI Thi
 #### Zalecany wyświetlacz
 
 OLED SSD1306 128x64 z magistralą I2C. Dobrze, jeśli ma wbudowane 4 przyciski lub zapewnij takie przyciski osobno dla wygodniejszego użytkowania, np. [OLED SSD1306 128x64 z czterema przyciskami](https://s.click.aliexpress.com/e/_oFKo8XC)
-
-
 
 #### Połączenie wyświetlacza:
 

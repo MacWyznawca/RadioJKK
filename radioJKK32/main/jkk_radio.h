@@ -42,7 +42,7 @@ extern "C" {
 #define JKK_RADIO_MAX_EQ_PRESETS (20) // Maximum number of equalizers preset
 #define JKK_RADIO_MAX_EBMEDDED_EQ_PRESETS (10) // Maximum number of embedded equalizers preset
 
-#define JKK_RADIO_WAIT_TO_SAVE_TIME (10 * 1000) // Time to wait before saving changes of station, equalizerw, volume (in milliseconds) for longer life of flash memory (miminal 10 years)
+#define JKK_RADIO_WAIT_TO_SAVE_TIME (15 * 1000) // Time to wait before saving changes of station, equalizerw, volume (in milliseconds) for longer life of flash memory (miminal 10 years)
 
 #define WIFI_CONNECTED_BIT BIT0
 
@@ -72,7 +72,8 @@ typedef enum  {
     JKK_RADIO_TO_SAVE_CURRENT_STATION = 1 << 0,
     JKK_RADIO_TO_SAVE_EQ  = 1 << 1,
     JKK_RADIO_TO_SAVE_VOLUME  = 1 << 2,
-    JKK_RADIO_TO_SAVE_ALL = JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME,
+    JKK_RADIO_TO_SAVE_STATION_LIST  = 1 << 3,
+    JKK_RADIO_TO_SAVE_ALL = JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME | JKK_RADIO_TO_SAVE_STATION_LIST,
     JKK_RADIO_TO_SAVE_MAX = JKK_RADIO_TO_SAVE_ALL + 1,
 } toSave_e;
 

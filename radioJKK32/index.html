@@ -331,7 +331,7 @@
     </div>
     <div style="text-align: center; margin: 1rem 0;">
         <button onclick="downloadBackup()" class="backup-button">
-            📥 Save stations to SD card
+            📥 Download station list from device
         </button>
     </div>
 
@@ -710,21 +710,13 @@
             }
         });
 
-        async function downloadBackup() {
-            await fetch('/backup_stations', {
-                method: 'POST',
-                body: ''
-            })
-            .then(r => r.text())
-            .then(response => {
-                if (response === 'OK') {
-                    alert(`Save stations: ${response}`);
-                } else {
-                    alert(response);
-                }
-            }).catch(error => {
-                console.error("Error downloading backup:", error);
-            });
+        function downloadBackup() {
+            const link = document.createElement('a');
+            link.href = '/backup_stations';
+           // link.download = 'radiojkk_stations_file.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         async function editStation(dataCsv) {

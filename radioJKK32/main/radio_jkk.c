@@ -276,8 +276,7 @@ esp_err_t JkkRadioExportStations(const char *filename) {
             timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
     fprintf(fptr, "# Total stations: %d\n", jkkRadio.station_count);
     fprintf(fptr, "#\n");
-    fprintf(fptr, "# Format: URL;ShortName;LongName;Favorite;Type;AudioDescription\n");
-    fprintf(fptr, "#\n");
+    fprintf(fptr, "# URL;ShortName;LongName;Favorite;Type;Comment\n");
     
     int exported_count = 0;
     
@@ -303,8 +302,7 @@ esp_err_t JkkRadioExportStations(const char *filename) {
         
         fprintf(fptr, "\n");
         exported_count++;
-    }
-    
+    } 
     fclose(fptr);
     
     ESP_LOGI(TAG, "Exported %d stations to %s", exported_count, filepath);
@@ -448,25 +446,11 @@ esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex) {
 #endif
     
     ESP_LOGI(TAG, "Station successfully moved from position %d to %d", oldIndex, newIndex);
+    jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_STATION_LIST;
+    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
     return ESP_OK;
 }
 
-static void JkkRadioUpdateVolume(void){
-    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume); 
-    jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_VOLUME;
-    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
-    JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-    JkkLcdVolumeInt(jkkRadio.player_volume);
-#endif
-}
-
-void JkkRadioSetVolume(uint8_t vol){
-    if(vol > 100) vol = 100;
-    jkkRadio.player_volume = vol;
-    ESP_LOGI(TAG, "Set volume: %d", jkkRadio.player_volume);
-    JkkRadioUpdateVolume();
-}
 
 void JkkRadioDeleteStation(uint16_t station){
     ESP_LOGW(TAG, "Deleting station: %d", station);
@@ -494,10 +478,13 @@ void JkkRadioDeleteStation(uint16_t station){
     if(!jkkRadio.jkkRadioStations) {
         ESP_LOGE(TAG, "Failed to reallocate memory for stations");
         jkkRadio.station_count = 0; // Reset count on failure  
+        return;
     } else {
         ESP_LOGI(TAG, "Station %d deleted successfully. New station count: %d", index, jkkRadio.station_count);
     }
     JkkRadioListForWWW(); // Update the list for web server
+    jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_STATION_LIST;
+    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
 }
 
 void JkkRadioEditStation(char *csvTxt){
@@ -554,9 +541,28 @@ void JkkRadioEditStation(char *csvTxt){
                  jkkRadio.jkkRadioStations[id].nameShort,
                  jkkRadio.jkkRadioStations[id].nameLong);
         JkkRadioListForWWW(); // Update the list for web server
+        jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_STATION_LIST;
+        xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
     } else {
         ESP_LOGE(TAG, "Invalid station ID");
     }
+}
+
+static void JkkRadioUpdateVolume(void){
+    audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume); 
+    jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_VOLUME;
+    xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
+    JkkRadioWwwUpdateVolume(jkkRadio.player_volume);
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+    JkkLcdVolumeInt(jkkRadio.player_volume);
+#endif
+}
+
+void JkkRadioSetVolume(uint8_t vol){
+    if(vol > 100) vol = 100;
+    jkkRadio.player_volume = vol;
+    ESP_LOGI(TAG, "Set volume: %d", jkkRadio.player_volume);
+    JkkRadioUpdateVolume();
 }
 
 void JkkRadioListForWWW(void){
@@ -815,14 +821,18 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
         jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
     }
 
-    if(jkkRadio.whatToSave > JKK_RADIO_TO_SAVE_NOTHING && jkkRadio.whatToSave < JKK_RADIO_TO_SAVE_MAX){
+    if(jkkRadio.whatToSave & (JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME)){
         JkkRadioDataToSave_t toSave = {
             .current_eq = jkkRadio.current_eq,
             .current_station = jkkRadio.current_station,
             .current_volume = jkkRadio.player_volume,
         };
         JkkNvs64_set("stateStEq", JKK_RADIO_NVS_NAMESPACE, toSave.all64);
-        jkkRadio.whatToSave = JKK_RADIO_TO_SAVE_NOTHING;
+        jkkRadio.whatToSave &= ~(JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME);
+    }
+    if(jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_STATION_LIST){
+        JkkRadioExportStations("station.txt");
+        jkkRadio.whatToSave &= ~JKK_RADIO_TO_SAVE_STATION_LIST;
     }
 }
 
@@ -884,7 +894,7 @@ static void MainAppTask(void *arg){
     else {
         ESP_LOGW(TAG, "No saved state found, using defaults");
         jkkRadio.player_volume = 10;
-        jkkRadio.whatToSave = JKK_RADIO_TO_SAVE_ALL;
+        jkkRadio.whatToSave = JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME;
         xTimerStart(jkkRadio.waitTimer_h, portMAX_DELAY);
     }
 

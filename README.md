@@ -4,23 +4,24 @@
 
 ## 🌟 Main Features
 
-### 🌐 **Local Web Server – NEW!**
+### 🌐 **Local Web Server - NEW!**
 
-- **Remote control** via web browser: volume, station selection, equalizer change **New!**
-- **Editing radio station list** – modify, add, delete, and reorder **New!**
-- **Automatic network discovery** using mDNS/Bonjour/NetBIOS
-- **Responsive interface** working on all devices
-- **Local access** without the need for internet connection
-- **Backup to SD card** – ability to save the current station list to file
+- **Remote control** via a web browser: volume, station selection, equalizer adjustment  
+- **Edit the radio station list** – modify, add, delete, and reorder entries  
+- **Automatic network discovery** using mDNS/Bonjour/NetBIOS  
+- **Responsive interface** that works on all devices  
+- **Local access** without the need for an Internet connection  
+- **Automatic SD card save** of the current station list  
 
-### Other New Features
+### Other Updates
 
-- Increased maximum number of stations to 50
-- More built-in equalizers (10)
-- Maximum number of equalizers increased to 20
-- Reordering radio stations via web interface
-- Save the current station list from NVS (device flash memory) to SD card
-- Equalizer selection in the browser
+- Reorder radio stations via the web interface  
+- Automatically save the current station list from device flash memory (NVS) to the SD card  
+- Download the current station list in `.csv` format via the browser  
+- Equalizer selection via the web interface  
+- Increased maximum number of stations to 50  
+- Increased maximum number of equalizers to 20  
+- More built-in equalizers (10 total)
 
 ### 📻 Audio Playback
 

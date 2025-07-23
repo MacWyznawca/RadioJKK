@@ -146,11 +146,11 @@ esp_err_t eq_select_post_handler(httpd_req_t *req) {
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
+/*
+esp_err_t stations_safe_get_handler(httpd_req_t *req) {
+    ESP_LOGI(TAG, "stations_safe_get_handler called");
 
-esp_err_t stations_backup_get_handler(httpd_req_t *req) {
-    ESP_LOGI(TAG, "stations_backup_get_handler called");
-
-    esp_err_t ret = JkkRadioExportStations("stations.txt");
+    esp_err_t ret = JkkRadioExportStations("stat_web.txt");
     if (ret == ESP_ERR_NOT_FOUND) {
         httpd_resp_sendstr(req, "Open file error, check SD Card");
         return ESP_FAIL;
@@ -161,6 +161,42 @@ esp_err_t stations_backup_get_handler(httpd_req_t *req) {
     }
     httpd_resp_sendstr(req, "OK");
 
+    ESP_LOGI(TAG, "Stations save successfully");
+    return ESP_OK;
+}
+*/
+esp_err_t stations_backup_get_handler(httpd_req_t *req) {
+    ESP_LOGI(TAG, "stations_backup_get_handler called");
+    
+    // Set headers for file download
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"radiojkk_stations_file.csv\"");
+    
+    // Create temporary export
+    esp_err_t ret = JkkRadioExportStations("stat_tmp.txt");
+    if (ret != ESP_OK) {
+        httpd_resp_sendstr(req, "Error creating backup");
+        return ESP_FAIL;
+    }
+    
+    // Read and send file
+    FILE *fptr = fopen("/sdcard/stat_tmp.txt", "r");
+    if (fptr == NULL) {
+        httpd_resp_sendstr(req, "Error reading backup file");
+        return ESP_FAIL;
+    }
+    
+    char buffer[512];
+    while (fgets(buffer, sizeof(buffer), fptr)) {
+        httpd_resp_sendstr_chunk(req, buffer);
+    }
+    
+    fclose(fptr);
+    remove("/sdcard/stat_tmp.txt"); // Clean up
+    
+    // End response
+    httpd_resp_send_chunk(req, NULL, 0);
+    
     ESP_LOGI(TAG, "Stations backup sent successfully");
     return ESP_OK;
 }
@@ -175,7 +211,8 @@ httpd_uri_t uri_station_delete = { .uri = "/station_delete", .method = HTTP_POST
 httpd_uri_t uri_station_edit = { .uri = "/station_edit", .method = HTTP_POST, .handler = station_edit_post_handler };
 httpd_uri_t uri_station_reorder = { .uri = "/station_reorder", .method = HTTP_POST, .handler = station_reorder_post_handler };
 httpd_uri_t uri_eq_select = { .uri = "/eq_select", .method = HTTP_POST, .handler = eq_select_post_handler };
-httpd_uri_t uri_stations_backup = { .uri = "/backup_stations", .method = HTTP_POST, .handler = stations_backup_get_handler };
+// httpd_uri_t uri_stations_save = { .uri = "/save_stations", .method = HTTP_POST, .handler = stations_safe_get_handler };
+httpd_uri_t uri_stations_backup = { .uri = "/backup_stations", .method = HTTP_GET, .handler = stations_backup_get_handler };
 
 
 #define MDNS_INSTANCE "radio jkk web server"
@@ -222,6 +259,7 @@ void start_web_server(void) {
         httpd_register_uri_handler(server, &uri_station_edit);
         httpd_register_uri_handler(server, &uri_station_reorder);
         httpd_register_uri_handler(server, &uri_eq_select);
+      //  httpd_register_uri_handler(server, &uri_stations_save);
         httpd_register_uri_handler(server, &uri_stations_backup);
         ESP_LOGI(TAG, "Serwer WWW uruchomiony");
 
