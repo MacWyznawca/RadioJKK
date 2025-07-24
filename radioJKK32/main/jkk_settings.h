@@ -13,13 +13,29 @@
 
 #pragma once
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/**
+ * @brief Read WiFi settings from SD card or NVS
+ * @param jkkRadio Pointer to main radio structure
+ * @return ESP_OK on success, error code on failure
+ */
 esp_err_t JkkRadioSettingsRead(JkkRadio_t *jkkRadio);
+
+/**
+ * @brief Read radio station list from SD card and NVS
+ * @param jkkRadio Pointer to main radio structure
+ * @return ESP_OK on success, error code on failure
+ */
 esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio);
+
+/**
+ * @brief Read equalizer presets from SD card and NVS
+ * @param jkkRadio Pointer to main radio structure
+ * @return ESP_OK on success, error code on failure
+ */
 esp_err_t JkkRadioEqSdRead(JkkRadio_t *jkkRadio);
 
 #ifdef __cplusplus

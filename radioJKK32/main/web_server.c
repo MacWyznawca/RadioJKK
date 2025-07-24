@@ -193,13 +193,15 @@ esp_err_t stations_backup_get_handler(httpd_req_t *req) {
 }
 
 esp_err_t stop_post_handler(httpd_req_t *req) {
-    JkkRadioStop();
+    //JkkRadioStop();
+    JkkRadioSendMessageToMain(0, JKK_RADIO_CMD_STOP);
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
 
 esp_err_t toggle_play_pause_post_handler(httpd_req_t *req) {
-    JkkRadioTogglePlayPause();
+    JkkRadioSendMessageToMain(0, JKK_RADIO_CMD_TOGGLE_PLAY_PAUSE);
+    //JkkRadioTogglePlayPause();
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
@@ -258,6 +260,7 @@ void start_web_server(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 4096;
     config.server_port = 80;
+    config.core_id = 1; 
     config.max_open_sockets = 15;
     config.max_uri_handlers = 15;
     config.task_priority = tskIDLE_PRIORITY + 1;

@@ -1,9 +1,9 @@
 /* RadioJKK32 - Multifunction Internet Radio Player
  * Copyright (C) 2025 Jaromir Kopp (JKK)
+ * Main radio control and management functions
 */
 
 #pragma once
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -68,6 +68,7 @@ typedef enum  {
     JKK_RADIO_CMD_PAUSE = 103,
     JKK_RADIO_CMD_STOP = 104,
     JKK_RADIO_CMD_TOGGLE_PLAY_PAUSE = 105,
+    JKK_RADIO_CMD_TOGGLE_RECORD = 106,
     JKK_RADIO_CMD_SET_UNKNOW, 
 } customCmd_e;
 
@@ -145,20 +146,87 @@ typedef struct JkkRadio_s {
     TimerHandle_t waitTimer_h;
 } JkkRadio_t;
 
+/**
+ * @brief Set current radio station
+ * @param station Station index to switch to
+ */
 void JkkRadioSetStation(uint16_t station);
+
+/**
+ * @brief Set current equalizer preset
+ * @param eq Equalizer preset index
+ */
 void JkkRadioSetEqualizer(uint8_t eq);
+
+/**
+ * @brief Set radio volume level
+ * @param vol Volume level (0-100)
+ */
 void JkkRadioSetVolume(uint8_t vol);
+
+/**
+ * @brief Delete a radio station from the list
+ * @param station Station index to delete
+ */
 void JkkRadioDeleteStation(uint16_t station);
+
+/**
+ * @brief Edit or add a radio station
+ * @param csvTxt CSV formatted string with station data (id;name;description;url;favorite)
+ */
 void JkkRadioEditStation(char *csvTxt);
+
+/**
+ * @brief Update station list for web interface
+ * Formats current station list and sends to web server
+ */
 void JkkRadioListForWWW(void);
+
+/**
+ * @brief Update equalizer list for web interface
+ * Formats current equalizer list and sends to web server
+ */
 void JkkRadioEqListForWWW(void);
+
+/**
+ * @brief Reorder stations in the list
+ * @param oldIndex Current position of the station
+ * @param newIndex New position for the station
+ * @return ESP_OK on success, error code on failure
+ */
 esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex);
+
+/**
+ * @brief Export station list to SD card file
+ * @param filename Output filename (NULL for default "stations_export.txt")
+ * @return ESP_OK on success, error code on failure
+ */
 esp_err_t JkkRadioExportStations(const char *filename);
+
+/**
+ * @brief Start delayed save timer to batch NVS writes
+ * @param toSave Bitmask of what data to save
+ * @return ESP_OK on success, error code on failure
+ */
 esp_err_t JkkRadioSaveTimerStart(toSave_e toSave);
 
+/**
+ * @brief Stop audio recording to SD card
+ */
 void JkkRadioStopRecording(void);
+
+/**
+ * @brief Start audio recording to SD card
+ * @return ESP_OK on success, error code on failure
+ */
 esp_err_t JkkRadioStartRecording(void);
 
+/**
+ * @brief Send message to main audio pipeline
+ * @param mess Message data (usually index or command parameter)
+ * @param command Command type from customCmd_e enum
+ * @return ESP_OK on success, error code on failure
+ */
 esp_err_t JkkRadioSendMessageToMain(int mess, int command);
 
 /**
@@ -181,11 +249,15 @@ void JkkRadioStop(void);
  */
 void JkkRadioTogglePlayPause(void);
 
+/**
+ * @brief Toggle recording state (start if stopped, stop if recording)
+ * @return ESP_OK on success, error code on failure
+ */
 esp_err_t JkkRadioToggleRecording(void);
 
 /**
  * @brief Get current playback state
- * @return Current audio state
+ * @return true if playing, false if stopped or paused
  */
 bool JkkRadioIsPlaying(void);
 

@@ -598,7 +598,7 @@
             .then(r => r.text())
             .then(response => {
                 if (response === 'OK') {
-                    setTimeout(refreshCurrentStationAndVolume, 200);
+                    setTimeout(refreshCurrentStationAndVolume, 400);
                 }
             })
             .catch(error => {
@@ -614,7 +614,7 @@
             .then(r => r.text())
             .then(response => {
                 if (response === 'OK') {
-                    setTimeout(refreshCurrentStationAndVolume, 200);
+                    setTimeout(refreshCurrentStationAndVolume, 500);
                 } else {
                     console.error('Error toggling recording:', response);
                     // You might want to show user notification here
@@ -634,7 +634,7 @@
             .then(response => {
                 if (response === 'OK') {
                     // Update status immediately for better UX
-                    setTimeout(refreshCurrentStationAndVolume, 200);
+                    setTimeout(refreshCurrentStationAndVolume, 400);
                 }
             })
             .catch(error => {
@@ -931,7 +931,7 @@
 
         setInterval(() => {
             refreshEqualizerList();
-        }, 60000);
+        }, 30000);
 
         // Initial load
         refreshStationList();

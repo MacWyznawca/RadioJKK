@@ -893,7 +893,7 @@ void JkkRadioTogglePlayPause(void) {
     ESP_LOGI(TAG, "Toggle play/pause command received");
     
     if (JkkAudioIsPlaying()) {
-        JkkRadioPause();
+        JkkRadioStop();
     } else {
         JkkRadioPlay();
     }
@@ -918,6 +918,7 @@ esp_err_t JkkRadioStartRecording(void){
         if(jkkRadio.audioMain->sample_rate > 25000){
             JkkAudioMainOnOffProcessing(false, jkkRadio.evt);
             JkkLcdEqTxt("");
+            JkkLcdVolumeIndicatorCallback(0,0);
         }
 #endif
         char filePath[48] = {0};
@@ -946,20 +947,27 @@ void JkkRadioStopRecording(void) {
 
 esp_err_t JkkRadioToggleRecording(void) {
     ESP_LOGI(TAG, "Toggle recording command received");
-    
+    JkkRadioSendMessageToMain(JKK_RADIO_CMD_TOGGLE_RECORD, JKK_RADIO_CMD_TOGGLE_RECORD);
+    return ESP_OK;   
+}
+
+void JkkToggleRecording(int command) {
+    ESP_LOGI(TAG, "Toggle recording command received");
+    if(command != JKK_RADIO_CMD_TOGGLE_RECORD) {
+        return;
+    }
     if (jkkRadio.audioSdWrite->is_recording) {
         JkkRadioStopRecording();
         JkkRadioWwwUpdateRecording(0);
-    } else {
+    } else if(JkkRadioIsPlaying()) {
         esp_err_t ret = JkkRadioStartRecording();
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Failed to start recording: %s", esp_err_to_name(ret));
             JkkRadioWwwUpdateRecording(0);
-            return ret;
+            return ;
         }
         JkkRadioWwwUpdateRecording(1);
-    }
-    return ESP_OK;   
+    } 
 }
 
 static void MainAppTask(void *arg){
@@ -1193,13 +1201,12 @@ static void MainAppTask(void *arg){
         audio_event_iface_msg_t msg = {0};
         esp_err_t ret = audio_event_iface_listen(jkkRadio.evt, &msg, pdMS_TO_TICKS(3000)); // portMAX_DELAY
         if (ret != ESP_OK) {
-            audio_element_state_t sdState = audio_element_get_state(jkkRadio.audioSdWrite->fatfs_wr);
             audio_element_state_t inState = audio_element_get_state(jkkRadio.audioMain->input);
             audio_element_state_t outState = audio_element_get_state(jkkRadio.audioMain->output);
             audio_element_state_t decState = audio_element_get_state(jkkRadio.audioMain->decoder);
             audio_element_state_t vmState = audio_element_get_state(jkkRadio.audioMain->vmeter);
          //   ESP_LOGW(TAG, "[ Uncnow ] fatfs_wr state: %d, inState: %d", sdState, inState);
-            jkkRadio.audioSdWrite->is_recording = (sdState == AEL_STATE_RUNNING);
+            jkkRadio.audioSdWrite->is_recording = JkkAudioSdWriteIsRecording();
             jkkRadio.is_playing = (inState == AEL_STATE_RUNNING && outState == AEL_STATE_RUNNING && decState == AEL_STATE_RUNNING && vmState == AEL_STATE_RUNNING);
             if(jkkRadio.is_playing && (jkkRadio.statusStation == JKK_RADIO_STATUS_ERROR || jkkRadio.statusStation == JKK_RADIO_STATUS_CHANGING_STATION)){
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
@@ -1254,6 +1261,18 @@ static void MainAppTask(void *arg){
 
                 ESP_LOGW(TAG, "JKK_RADIO_CMD_SET_STATION: %d", received_value); 
                 JkkChangeEq(received_value);
+            }
+            else if(msg.cmd == JKK_RADIO_CMD_TOGGLE_RECORD){
+                int received_value = (int)(intptr_t)msg.data;
+                JkkToggleRecording(received_value);
+            }
+            else if(msg.cmd == JKK_RADIO_CMD_TOGGLE_PLAY_PAUSE){
+                ESP_LOGW(TAG, "JKK_RADIO_CMD_TOGGLE_PLAY_PAUSE"); 
+                JkkRadioTogglePlayPause();
+            }
+            else if(msg.cmd == JKK_RADIO_CMD_STOP){
+                ESP_LOGW(TAG, "JKK_RADIO_CMD_STOP"); 
+                JkkRadioStop();
             }
         } 
       //  int data = msg.data != NULL ? (int)(intptr_t)msg.data : -1;
@@ -1348,8 +1367,7 @@ static void MainAppTask(void *arg){
                     }
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
-                    audio_element_state_t sdState = audio_element_get_state(jkkRadio.audioSdWrite->fatfs_wr);
-                    jkkRadio.audioSdWrite->is_recording = (sdState == AEL_STATE_RUNNING);
+                    jkkRadio.audioSdWrite->is_recording = JkkAudioSdWriteIsRecording();
                     if(jkkRadio.audioSdWrite->is_recording){
                         JkkRadioStopRecording();
                     }
@@ -1457,8 +1475,7 @@ static void MainAppTask(void *arg){
                 }
             } else if ((int)msg.data == get_input_rec_id()) {
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                    audio_element_state_t sdState = audio_element_get_state(jkkRadio.audioSdWrite->fatfs_wr);
-                    jkkRadio.audioSdWrite->is_recording = (sdState == AEL_STATE_RUNNING);
+                    jkkRadio.audioSdWrite->is_recording = JkkAudioSdWriteIsRecording();
                     if(jkkRadio.audioSdWrite->is_recording){
                         continue;
                     }

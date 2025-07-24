@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Indicate the recording state in WWW interface
 - Dot center in display when system counting time to save settings and state (not saved yet)
 
+### Fixed
+- Fixed problem with start/stop recording with streams with sample rate greater than 25000.
+
 ## [1.0.2] - 2025-07-24
 
 ### Added
