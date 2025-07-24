@@ -167,6 +167,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
             }
             case WIFI_PROV_CRED_SUCCESS:
                 ESP_LOGI(TAG, "Provisioning successful");
+                JkkRadioSaveTimerStart(jkkRadio.whatToSave | JKK_RADIO_TO_SAVE_PROVISIONED); 
                 break;
             case WIFI_PROV_END:
                 ESP_LOGW(TAG, "Provisioning END");
@@ -210,6 +211,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
 #endif
         /* Signal main application to continue execution */
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
+        //JkkRadioSaveTimerStart(jkkRadio.whatToSave | JKK_RADIO_TO_SAVE_PROVISIONED); 
     } else if (event_base == PROTOCOMM_SECURITY_SESSION_EVENT) {
         switch (event_id) {
             case PROTOCOMM_SECURITY_SESSION_SETUP_OK:
@@ -765,7 +767,7 @@ void JkkRadioSetStation(uint16_t station){
             JkkLcdStationTxt(">tuning<");
             if(JkkLcdRollerMode() == JKK_ROLLER_MODE_STATION_LIST) {
                 JkkLcdShowRoller(true, jkkRadio.current_station, JKK_ROLLER_MODE_STATION_LIST);
-        }
+            }
 #endif
         }
     }
@@ -794,10 +796,17 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
         JkkRadioExportStations("stations.txt");
         jkkRadio.whatToSave &= ~JKK_RADIO_TO_SAVE_STATION_LIST;
     }
+    if(jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_PROVISIONED){
+        wifi_prov_mgr_deinit();
+        stop_web_server();
+        start_web_server();
+        ESP_LOGI(TAG, "Provisioning ended");
+        jkkRadio.whatToSave &= ~JKK_RADIO_TO_SAVE_PROVISIONED;
+    }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdIpTxt("");
 #endif
-}
+} 
 
 esp_err_t JkkRadioSaveTimerStart(toSave_e toSave) {
     if(jkkRadio.waitTimer_h == NULL) {
@@ -930,8 +939,8 @@ esp_err_t JkkRadioStartRecording(void){
             JkkLcdIpTxt("");
             JkkLcdRec(true);
         }
-    }
 #endif
+    }
     return ret;
 }
 
@@ -1020,6 +1029,7 @@ static void MainAppTask(void *arg){
 
     JkkRadioDataToSave_t toRead = {0};
 
+    bool playAnything = false;
     if(JkkNvs64_get("stateStEq", JKK_RADIO_NVS_NAMESPACE, &toRead.all64) == ESP_OK){
         jkkRadio.current_eq = toRead.current_eq < jkkRadio.eq_count ? toRead.current_eq : 0;
         jkkRadio.prev_station = jkkRadio.current_station = toRead.current_station < jkkRadio.station_count ? toRead.current_station : 0;
@@ -1029,7 +1039,7 @@ static void MainAppTask(void *arg){
     else {
         ESP_LOGW(TAG, "No saved state found, using defaults");
         jkkRadio.player_volume = 10;
-        JkkRadioSaveTimerStart(JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME);
+        playAnything = jkkRadio.is_playing = true;
     }
 
     audio_hal_set_volume(jkkRadio.board_handle->audio_hal, jkkRadio.player_volume);
@@ -1177,7 +1187,7 @@ static void MainAppTask(void *arg){
 
     ESP_LOGI(TAG, "Start audio_pipeline");
 
-    if(jkkRadio.is_playing){
+    if(jkkRadio.is_playing || playAnything){
         JkkAudioPlay();
     }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)

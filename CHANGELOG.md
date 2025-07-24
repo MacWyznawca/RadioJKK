@@ -7,15 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-07-25
+
 ### Added
-- Save and restore Play/[Stop, Pause] state
-- Long press Vol- stopped playing, and long press Vol+ started playing.
+- Save and restore Play/Stop state
+- Long press Vol- stopped playing, long press Vol+ started playing.
 - On/off record to SD card from WWW interface
 - Indicate the recording state in WWW interface
 - Dot center in display when system counting time to save settings and state (not saved yet)
 
+### Changed
+- Allow to allocate .bss data in external memory
+- After provisioning, playing is set by default
+
 ### Fixed
-- Fixed problem with start/stop recording with streams with sample rate greater than 25000.
+- Fixed problem with start/stop recording with streams with sample rate greater than 25000
+- Problem with web server  not responding after provisioning (first run)
 
 ## [1.0.2] - 2025-07-24
 
