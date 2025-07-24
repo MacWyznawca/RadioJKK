@@ -198,7 +198,7 @@
         }
 
         .backup-button {
-            padding: 0.6rem 1.2rem;
+            padding: 0.6rem 1rem;
             font-size: 1rem;
             background-color: #28a745;
             color: white;
@@ -221,7 +221,7 @@
         }
 
         .control-button {
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 1rem 0.5rem 0.80rem;
             font-size: 0.9rem;
             background-color: #007bff;
             color: white;
@@ -248,7 +248,7 @@
 
         @media (max-width: 600px) {
             body {
-                font-size: 18px;
+                font-size: 16px;
                 margin: 0.5rem;
             }
 
@@ -278,9 +278,9 @@
             }
 
             .control-button {
-                padding: 0.7rem 1.3rem;
-                font-size: 1.1rem;
-                min-width: 90px;
+                padding: 0.4rem 0.5rem 0.4rem 0.4rem;
+                font-size: 0.85rem;
+                min-width: 55px;
             }
 
             .station-entry {
@@ -323,15 +323,18 @@
         </div>
     </div>
 
-    <div style="display: flex; justify-content: center; align-items: center; margin: 1rem auto; gap: 1rem; width: 95%; max-width: 800px;">
+    <div style="display: flex; justify-content: center; align-items: center; margin: 1rem auto; gap: 0.5rem; width: 95%; max-width: 800px; flex-wrap: wrap;">
         <button id="play-btn" onclick="togglePlayPause()" class="control-button">
             ▶️ Play
         </button>
         <button id="stop-btn" onclick="stopPlayback()" class="control-button">
             ⏹️ Stop
         </button>
-        <div style="flex: 1; text-align: right;">
-            <span id="playback-status" style="font-weight: bold; font-size: 1.1rem;">⏸️ Stopped</span>
+        <button id="record-btn" onclick="toggleRecord()" class="control-button" style="background-color: #dc3545;">
+            🔴 Rec
+        </button>
+        <div style="flex: 1; text-align: right; min-width: 120px;">
+            <span id="combined-status" style="font-weight: bold; font-size: 1rem;">⏸️ Stopped</span>
         </div>
     </div>
 
@@ -386,27 +389,49 @@
         let current_eq = -1;
         let draggedIndex = -1;
         let isPlaying = false;
+        let isRecording = false;
 
         function refreshCurrentStationAndVolume() {
             fetch("/status")
                 .then(r => r.text())
                 .then(t => {
-                    const [volx, idx, eqidx, playing] = t.split(';');
+                    const [volx, idx, eqidx, playing, recording] = t.split(';');
                     const vol = parseInt(volx);
                     let id = parseInt(idx);
                     let eq_id = parseInt(eqidx);
                     isPlaying = parseInt(playing) == 1;
+                    isRecording = parseInt(recording) == 1;
 
                     const playBtn = document.getElementById("play-btn");
-                    const statusSpan = document.getElementById("playback-status");
+                    const recordBtn = document.getElementById("record-btn");
+                    const combinedStatus = document.getElementById("combined-status");
 
+                    // Update play button
                     if (isPlaying) {
                         playBtn.innerHTML = "⏸️ Pause";
-                        statusSpan.innerHTML = "▶️ Playing";
                     } else {
                         playBtn.innerHTML = "▶️ Play";
-                        statusSpan.innerHTML = "⏸️ Stopped";
                     }
+
+                    // Update record button
+                    if (isRecording) {
+                        recordBtn.innerHTML = "⏹️ Stop";
+                        recordBtn.style.backgroundColor = "#28a745"; // Green when recording
+                    } else {
+                        recordBtn.innerHTML = "🔴 Rec";
+                        recordBtn.style.backgroundColor = "#dc3545"; // Red when not recording
+                    }
+
+                    // Update combined status
+                    let statusText = "";
+                    if (isPlaying && isRecording) {
+                        statusText = "🔴 Play&Rec";
+                    } else if (isPlaying) {
+                        statusText = "▶️ Playing";
+                    } else {
+                        statusText = "⏸️ Stopped";
+                    }
+                    combinedStatus.innerHTML = statusText;
 
                     if (!isNaN(vol)) {
                         document.getElementById("volume").value = vol;
@@ -578,6 +603,25 @@
             })
             .catch(error => {
                 console.error('Error toggling playback:', error);
+            });
+        }
+
+        function toggleRecord() {
+            fetch("/rec_toggle", {
+                method: "POST",
+                body: ""
+            })
+            .then(r => r.text())
+            .then(response => {
+                if (response === 'OK') {
+                    setTimeout(refreshCurrentStationAndVolume, 200);
+                } else {
+                    console.error('Error toggling recording:', response);
+                    // You might want to show user notification here
+                }
+            })
+            .catch(error => {
+                console.error('Error toggling recording:', error);
             });
         }
 

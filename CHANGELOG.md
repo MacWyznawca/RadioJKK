@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Save and restore Play/[Stop, Pause] state
+- Long press Vol- stopped playing, and long press Vol+ started playing.
+- On/off record to SD card from WWW interface
+- Indicate the recording state in WWW interface
+- Dot center in display when system counting time to save settings and state (not saved yet)
+
 ## [1.0.2] - 2025-07-24
 
 ### Added

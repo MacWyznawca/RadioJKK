@@ -17,6 +17,7 @@ static EXT_RAM_BSS_ATTR char eq_list[18 * JKK_RADIO_MAX_EQ_PRESETS] = "";
 static uint8_t volume = 10;
 static int8_t station_id = -1;
 static uint8_t eq_id = 0;
+static uint8_t is_rec = 0;
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
@@ -39,7 +40,10 @@ void JkkRadioWwwSetEqId(uint8_t id) {
 
 void JkkRadioWwwUpdateVolume(uint8_t vol) {
     volume = vol;
-    ESP_LOGI(TAG, "Volume WWW server set to %d%%", volume);
+}
+
+void JkkRadioWwwUpdateRecording(uint8_t rec) {
+    is_rec = rec;
 }
 
 esp_err_t root_get_handler(httpd_req_t *req) {
@@ -48,8 +52,8 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 }
 
 esp_err_t info_get_handler(httpd_req_t *req) {
-    char current_status[128 + 128 + 40] = {0};
-    snprintf(current_status, sizeof(current_status), "%d;%d;%d;%d", volume, station_id, eq_id, JkkRadioIsPlaying() ? 1 : 0);
+    char current_status[64] = {0};
+    snprintf(current_status, sizeof(current_status), "%d;%d;%d;%d;%d", volume, station_id, eq_id, JkkRadioIsPlaying() ? 1 : 0, is_rec);
     httpd_resp_set_type(req, "text/plain");
     httpd_resp_sendstr(req, current_status);
     return ESP_OK;
@@ -200,6 +204,17 @@ esp_err_t toggle_play_pause_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t toggle_record_post_handler(httpd_req_t *req) {
+    esp_err_t ret = JkkRadioToggleRecording();
+    if (ret != ESP_OK) {
+        httpd_resp_sendstr(req, "Error toggling recording");
+    }
+    else {
+        httpd_resp_sendstr(req, "OK");
+    }  
+    return ESP_OK;
+}
+
 httpd_uri_t uri_root = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler };
 httpd_uri_t uri_station_name = { .uri = "/status", .method = HTTP_GET, .handler = info_get_handler };
 httpd_uri_t uri_volume = { .uri = "/volume", .method = HTTP_POST, .handler = volume_post_handler };
@@ -213,7 +228,7 @@ httpd_uri_t uri_eq_select = { .uri = "/eq_select", .method = HTTP_POST, .handler
 httpd_uri_t uri_stations_backup = { .uri = "/backup_stations", .method = HTTP_GET, .handler = stations_backup_get_handler };
 httpd_uri_t uri_stop = { .uri = "/stop", .method = HTTP_POST, .handler = stop_post_handler };
 httpd_uri_t uri_toggle = { .uri = "/toggle", .method = HTTP_POST, .handler = toggle_play_pause_post_handler };
-
+httpd_uri_t uri_rec_toggle = { .uri = "/rec_toggle", .method = HTTP_POST, .handler = toggle_record_post_handler };
 
 #define MDNS_INSTANCE "radio jkk web server"
 #define MDNS_HOST_NAME "RadioJKK"
@@ -244,7 +259,7 @@ void start_web_server(void) {
     config.stack_size = 4096;
     config.server_port = 80;
     config.max_open_sockets = 15;
-    config.max_uri_handlers = 14;
+    config.max_uri_handlers = 15;
     config.task_priority = tskIDLE_PRIORITY + 1;
     config.task_caps = MALLOC_CAP_INTERNAL| MALLOC_CAP_8BIT; // MALLOC_CAP_SPIRAM
 
@@ -262,6 +277,7 @@ void start_web_server(void) {
         httpd_register_uri_handler(server, &uri_stations_backup);
         httpd_register_uri_handler(server, &uri_stop);
         httpd_register_uri_handler(server, &uri_toggle);
+        httpd_register_uri_handler(server, &uri_rec_toggle);
         ESP_LOGI(TAG, "Serwer WWW uruchomiony");
 
         initialise_mdns();

@@ -79,11 +79,8 @@ void JkkLcdStationTxt(char *stationName) {
     }
     char stationNameTmp[130] = {0};
     Utf8ToAsciiPL(stationName, stationNameTmp);
-    if(JkkLcdPortLock(0)){   
-      //  lv_label_set_long_mode(radioLabel, LV_LABEL_LONG_CLIP);   
-        lv_label_set_text(radioLabel, stationNameTmp);       
-     //   lv_timer_reset(stationScrollTimer);
-     //   lv_timer_resume(stationScrollTimer);
+    if(JkkLcdPortLock(0)){     
+        lv_label_set_text(radioLabel, stationNameTmp);      
         JkkLcdPortUnlock();
     } else {
         ESP_LOGE(TAG, "Failed to lock the port for updating station text");
