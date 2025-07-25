@@ -947,6 +947,7 @@ esp_err_t JkkRadioStartRecording(void){
 void JkkRadioStopRecording(void) {
     ESP_LOGI(TAG, "Stop recording command received");
     JkkAudioSdWriteStopStream();
+    JkkRadioWwwUpdateRecording(0);
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
     JkkLcdRec(false);
     JkkAudioMainOnOffProcessing(true, jkkRadio.evt);

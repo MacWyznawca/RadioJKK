@@ -469,6 +469,22 @@
                 const rows = t.trim().split('\n');
                 const tbody = document.getElementById("station-list");
                 tbody.innerHTML = '';
+
+                const  rowNr = rows.length;
+
+                if( rowNr === 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><span class="drag-handle">⋮⋮</span></td>
+                        <td>No stations</td>
+                        <td>Please add some or refresh page</td>
+                        <td></td>
+                    `;
+                    tbody.appendChild(tr);
+                    return;
+                }
+
+                console.log(`Refreshing station list, found ${rowNr} stations`);
                 
                 for (const row of rows) {
                     const [id, name, desc, url] = row.split(';');
@@ -522,6 +538,7 @@
                     tbody.addEventListener('drop', handleDrop);
 
                     tbody.appendChild(tr);
+
                     stationMap[id] = {
                         name: name,
                         desc: desc,
@@ -537,6 +554,19 @@
                 dropZone.addEventListener('dragleave', handleDropZoneLeave);
 
                 currenttRow(current_station);
+            })
+            .catch(error => {
+                const tbody = document.getElementById("station-list");
+                const tr = document.createElement('tr');
+                tbody.innerHTML = '';
+                tr.innerHTML = `
+                    <td><span class="drag-handle">⋮⋮</span></td>
+                    <td><b>Load error</b></td>
+                    <td>Please refresh page or check connection</td>
+                    <td>
+                    </td>
+                `;
+                tbody.appendChild(tr);
             });
         }
 
@@ -586,7 +616,7 @@
             })
             .catch(error => {
                 const eqSelect = document.getElementById("equalizer-select");
-                eqSelect.innerHTML = '<option value="-1">Error loading equalizers</option>';
+                eqSelect.innerHTML = '<option value="-1">Please refresh</option>';
             });
         }
 
