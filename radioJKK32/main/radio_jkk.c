@@ -617,34 +617,6 @@ static esp_err_t JkkMakePath(time_t timeSet, char *path, char *ext){
     }
     return ESP_OK;
 }
- 
-static void JkkSdRecInfoWrite(time_t timeSet, const char *path, const char *filePath){
-    FILE *fptr;
-    char infoText[480] = {0};
-    char infoPath[48] = {0};
-    if(path == NULL) {
-        ESP_LOGE(TAG, "Invalid path or filePath");
-        return;
-    }   
-    strcpy(infoPath, path);
-    fptr = fopen(strcat(infoPath, "/info.txt"), "a");
-    if (fptr == NULL) {
-        ESP_LOGE(TAG, "Error opening file: %s", path);
-        return;
-    }
-    struct tm timeinfo = { 0 };
-    localtime_r(&timeSet, &timeinfo); 
-
-    snprintf(infoText, sizeof(infoText), "%s;%s;%s;%04d-%02d-%02d;%02d.%02d.%02d\n",
-                filePath,
-                jkkRadio.jkkRadioStations[jkkRadio.current_station].nameShort,
-                jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong,
-                timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-
-    fprintf(fptr, infoText);
-
-    fclose(fptr);
-}
 
 static bool JkkIOFileInfo(const char *f_path, uint32_t *lenght, uint32_t *time){
     if(!f_path) return 0;
@@ -654,6 +626,40 @@ static bool JkkIOFileInfo(const char *f_path, uint32_t *lenght, uint32_t *time){
     if(time && info.st_mtime) *time = info.st_mtime - EPOCH_TIMESTAMP;
     if(lenght && info.st_size) *lenght = info.st_size;
     return exist;
+}
+ 
+static void JkkSdRecInfoWrite(time_t timeSet, const char *path, const char *filePath, bool end){
+    FILE *fptr;
+    char infoText[480] = {0};
+    char infoPath[48] = {0};
+    if(path == NULL) {
+        ESP_LOGE(TAG, "Invalid path or filePath");
+        return;
+    }   
+    snprintf(infoPath, sizeof(infoPath), "%s/info.txt", path);
+    bool isExist = JkkIOFileInfo(infoPath, NULL, NULL);
+    fptr = fopen(infoPath, "a");
+    if (fptr == NULL) {
+        ESP_LOGE(TAG, "Error opening file: %s", path);
+        return;
+    }
+    struct tm timeinfo = { 0 };
+    localtime_r(&timeSet, &timeinfo); 
+    
+    if(!end){
+        snprintf(infoText, sizeof(infoText), "%s%s;%s;%s;%04d-%02d-%02d;%02d.%02d.%02d",
+                isExist ? "\n" : "# File path;Short name;Description;Start date;Start time;End date;End time\n#\n",
+                filePath,
+                jkkRadio.jkkRadioStations[jkkRadio.current_station].nameShort,
+                jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong,
+                timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    }
+    else {
+        snprintf(infoText, sizeof(infoText), ";%04d-%02d-%02d;%02d.%02d.%02d",
+                timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    }
+    fprintf(fptr, infoText);
+    fclose(fptr);
 }
 
 static void JkkChangeEq(int eqN){
@@ -928,27 +934,36 @@ esp_err_t JkkRadioStartRecording(void){
             JkkAudioMainOnOffProcessing(false, jkkRadio.evt);
             JkkLcdEqTxt("");
             JkkLcdVolumeIndicatorCallback(0,0);
+            JkkRadioWwwSetEqId(0);
         }
 #endif
         char filePath[48] = {0};
         JkkMakePath(now, filePath, "aac");
         ret = JkkAudioSdWriteStartStream(filePath);
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
         if(ret == ESP_OK) {
-            JkkSdRecInfoWrite(now, folderPath, filePath);
+            JkkSdRecInfoWrite(now, folderPath, filePath, false);
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
             JkkLcdIpTxt("");
             JkkLcdRec(true);
-        }
 #endif
+        }
     }
     return ret;
 }
 
 void JkkRadioStopRecording(void) {
     ESP_LOGI(TAG, "Stop recording command received");
+    char folderPath[32];
+    char filePath[48] = {0};
+    time_t now = 0;
+    time(&now);
+    JkkMakePath(now, folderPath, NULL);
+    JkkMakePath(now, filePath, "aac");
+    JkkSdRecInfoWrite(now, folderPath, filePath, true);
     JkkAudioSdWriteStopStream();
     JkkRadioWwwUpdateRecording(0);
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+    JkkRadioWwwSetEqId(jkkRadio.current_eq);
     JkkLcdRec(false);
     JkkAudioMainOnOffProcessing(true, jkkRadio.evt);
     JkkLcdEqTxt(jkkRadio.eqPresets[jkkRadio.current_eq].name);
@@ -1106,8 +1121,6 @@ static void MainAppTask(void *arg){
         const char *pop = PROV_POP_TXT;
 
         wifi_prov_security1_params_t *sec_params = pop;
-
-        const char *username  = NULL;
 
         const char *service_key = NULL;
 

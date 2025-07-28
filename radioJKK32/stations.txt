@@ -1,8 +1,27 @@
+# URL;ShortName;LongName;Favorite;Type;Comment
 http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław;0;5
-http://stream2.nadaje.com:9228/ram.aac;RAM;Radio RAM;0;1
+http://stream2.nadaje.com:9228/ram.aac;RAM;Radio RAM Wrocław;0;0
 http://stream2.nadaje.com:9238/rwkultura.aac;RWK;Radio Wrocław Kultura;1;1
-http://mp3.polskieradio.pl:8904/;Trójka;Polskie Radio Program Trzeci;0;1
-http://mp3.polskieradio.pl:8902/;Jedynka;Polskie Radio Program Pierwszy;0;1
-http://redir.atmcdn.pl/sc/o2/Eurozet/live/audio.livx;Zet;Radio Zet
-http://stream.radioluz.pl:8000/luzlofi.ogg;Luz;Akademickie Radio Luz
-# https://dl.espressif.com/dl/audio/ff-16b-2c-44100hz.aac;HTTPS;HTTPS;0 
+http://stream.radioluz.pl:8000/luzlofi.ogg;LUZ;Akademickie Radio Luz;0;1
+http://mp3.polskieradio.pl:8900/;PR1;Polskie Radio Program Pierwszy;0;2
+http://mp3.polskieradio.pl:8902/;PR2;Polskie Radio Program Drugi;0;1
+http://mp3.polskieradio.pl:8904/;PR3;Polskie Radio Program Trzeci;0;1
+http://mp3.polskieradio.pl:8906/;PR4;Polskie Radio Czwórka;0;1
+https://n21a-eu.rcs.revma.com/an1ugyygzk8uv?rj-ttl=5&rj-tok=AAABmDFzJlQAdgLX8wAJ9ClIZA;Radio 357;Radio 357;0;0
+http://mp3.polskieradio.pl:8120/;SZANTY;PR Szanty;0;7
+http://mp3.polskieradio.pl:8070/;P. Floyd;PR Pink Floyd;0;1
+http://poznan7.radio.pionier.net.pl:8000/tuba9-1.mp3;ZP;Złote Przeboje;0;1
+https://radiostream.pl/tuba142-1.mp3;Pogoda;Radio Pogoda;0;1
+http://stream4.nadaje.com:8578/poznan;Poznan;PR Poznań;0;5
+http://stream4.nadaje.com:9680/radiokrakow-s3;Krakow;PR Kraków;0;5
+http://stream4.nadaje.com:9212/radiokatowice;Katowice;PR Katowice;0;5
+http://dab.radio.opole.pl:8035/1;Opole;PR Opole;0;5
+http://stream02.zachod.pl:10113/;Zachod;PR Zachód;0;5;MP3
+http://stream4.nadaje.com:11986/prs.aac;Szczecin;PR Szczecin;0;5;AAC
+http://redir.atmcdn.pl/sc/o2/Eurozet/live/audio.livx;ZET;Radio Zet;0;2
+http://195.150.20.242:8000/rmf_fm;RMF;RMF FM;0;1
+http://wroclaw.radio.pionier.net.pl:8000/pl/tuba10-1.mp3;TOK FM;Radio TOK FM;0;0
+#
+# RadioJKK32 Station Export
+# Generated: 2025-07-25 18:51:44
+# Total stations: 22

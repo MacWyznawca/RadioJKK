@@ -122,6 +122,7 @@ static void jkk_lcd_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uin
         }
     }
     // pass the draw buffer to the driver
+    lv_display_flush_ready(disp);
     esp_lcd_panel_draw_bitmap(panel_handle, x1, y1, x2 + 1, y2 + 1, oled_buffer);
 }
 
@@ -264,7 +265,7 @@ lv_disp_t *JkkLcdPortInit(void){
         .on_color_trans_done = jkk_lcd_notify_lvgl_flush_ready,
     };
     /* Register done callback */
-    esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display);
+ //   esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display);
 
     ESP_LOGI(TAG, "Create LVGL task");
 

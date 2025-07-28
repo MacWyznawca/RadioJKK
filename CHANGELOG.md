@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Header of record info file with start and end time of record
+
 ### Fixed
+- Fixed absence of record info in file (version without display)
 - Improved web page error handling and information
 
 ## [1.0.3] - 2025-07-25
@@ -24,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - After provisioning, playing is set by default
 
 ### Fixed
-- Fixed problem with start/stop recording with streams with sample rate greater than 25000
-- Problem with web server  not responding after provisioning (first run)
+- Fixed problem with start/stop recording with streams, with sample rate greater than 25000
+- Problem with web server not responding after provisioning (first run)
 
 ## [1.0.2] - 2025-07-24
 
