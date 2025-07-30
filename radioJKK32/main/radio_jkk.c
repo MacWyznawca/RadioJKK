@@ -988,7 +988,7 @@ void JkkToggleRecording(int command) {
         esp_err_t ret = JkkRadioStartRecording();
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Failed to start recording: %s", esp_err_to_name(ret));
-            JkkRadioWwwUpdateRecording(0);
+            JkkRadioWwwUpdateRecording(-1);
             return ;
         }
         JkkRadioWwwUpdateRecording(1);

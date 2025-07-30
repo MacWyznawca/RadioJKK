@@ -55,7 +55,7 @@ void JkkRadioWwwSetEqId(uint8_t id);
  * @brief Update recording status for web interface
  * @param rec Recording status (1 for recording, 0 for not recording)
  */
-void JkkRadioWwwUpdateRecording(uint8_t rec);
+void JkkRadioWwwUpdateRecording(int8_t rec);
 
 #ifdef __cplusplus
 }

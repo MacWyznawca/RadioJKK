@@ -17,7 +17,7 @@ static EXT_RAM_BSS_ATTR char eq_list[18 * JKK_RADIO_MAX_EQ_PRESETS] = "";
 static uint8_t volume = 10;
 static int8_t station_id = -1;
 static uint8_t eq_id = 0;
-static uint8_t is_rec = 0;
+static int8_t is_rec = 0;
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
@@ -42,7 +42,7 @@ void JkkRadioWwwUpdateVolume(uint8_t vol) {
     volume = vol;
 }
 
-void JkkRadioWwwUpdateRecording(uint8_t rec) {
+void JkkRadioWwwUpdateRecording(int8_t rec) {
     is_rec = rec;
 }
 

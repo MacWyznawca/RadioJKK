@@ -389,7 +389,7 @@
         let current_eq = -1;
         let draggedIndex = -1;
         let isPlaying = false;
-        let isRecording = false;
+        let isRecording = 0;
 
         function refreshCurrentStationAndVolume() {
             fetch("/status")
@@ -400,7 +400,7 @@
                     let id = parseInt(idx);
                     let eq_id = parseInt(eqidx);
                     isPlaying = parseInt(playing) == 1;
-                    isRecording = parseInt(recording) == 1;
+                    isRecording = parseInt(recording);
 
                     const playBtn = document.getElementById("play-btn");
                     const recordBtn = document.getElementById("record-btn");
@@ -414,17 +414,21 @@
                     }
 
                     // Update record button
-                    if (isRecording) {
+                    if (isRecording === 1) {
                         recordBtn.innerHTML = "⏹️ Stop";
                         recordBtn.style.backgroundColor = "#28a745"; // Green when recording
                     } else {
                         recordBtn.innerHTML = "🔴 Rec";
                         recordBtn.style.backgroundColor = "#dc3545"; // Red when not recording
+                        if (isRecording === -1){
+                            recordBtn.innerHTML = "❌ Error";
+                            recordBtn.style.backgroundColor = "#dc3545"; // Red when error
+                        }
                     }
 
                     // Update combined status
                     let statusText = "";
-                    if (isPlaying && isRecording) {
+                    if (isPlaying && (isRecording == 1)) {
                         statusText = "🔴 Play&Rec";
                     } else if (isPlaying) {
                         statusText = "▶️ Playing";

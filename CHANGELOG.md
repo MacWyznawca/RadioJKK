@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Error display in web page when recording don't start
+ 
 - Header of record info file with start and end time of record
 
 ### Fixed
