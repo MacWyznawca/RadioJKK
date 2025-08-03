@@ -70,8 +70,7 @@ void JkkAudioSdWriteStopStream(void) {
         ESP_LOGE(TAG, "Audio pipeline is not initialized");
         return;
     }
-
-    // DODANE: Zabezpieczenie mutex
+    
     if (xSemaphoreTake(audioSd.recording_mutex, pdMS_TO_TICKS(5000)) != pdTRUE) {
         ESP_LOGE(TAG, "Failed to take recording mutex");
         return;
@@ -85,7 +84,6 @@ void JkkAudioSdWriteStopStream(void) {
 
     ESP_LOGI(TAG, "Stopping recording pipeline...");
     
-    // Prawidłowa sekwencja zatrzymywania
     esp_err_t ret = ESP_OK;
     ret |= audio_pipeline_stop(audioSd.pipeline);
     ret |= audio_pipeline_wait_for_stop(audioSd.pipeline);
@@ -218,6 +216,7 @@ JkkAudioSdWrite_t *JkkAudioSdWrite_init(int encoder_type, int sample_rate, int c
         rsp_cfg.dest_ch = channels;
         rsp_cfg.mode = RESAMPLE_ENCODE_MODE;
         rsp_cfg.task_core = 1; // Use core 1 for resampling
+        rsp_cfg.stack_in_ext = true;
         audioSd.resample = rsp_filter_init(&rsp_cfg);
         if(audioSd.resample == NULL) {
             ESP_LOGE(TAG, "Failed to create resample filter");
@@ -230,11 +229,12 @@ JkkAudioSdWrite_t *JkkAudioSdWrite_init(int encoder_type, int sample_rate, int c
     ESP_LOGI(TAG, "Pointer filter_resample_write=%p", audioSd.resample);
     if(encoder_type == 1) { // AAC
         ESP_LOGI(TAG, "[0.4] Create jkkRadio.audioMain->aac_encoder to encode data");
-        aac_encoder_cfg_t wav_cfg = DEFAULT_AAC_ENCODER_CONFIG();
-        wav_cfg.sample_rate = sample_rate;
-        wav_cfg.bitrate = DEFAULT_AAC_BITRATE;
-        wav_cfg.task_core = 1;
-        audioSd.encoder = aac_encoder_init(&wav_cfg);
+        aac_encoder_cfg_t aac_cfg = DEFAULT_AAC_ENCODER_CONFIG();
+        aac_cfg.sample_rate = sample_rate;
+        aac_cfg.bitrate = DEFAULT_AAC_BITRATE;
+        aac_cfg.task_core = 1;
+        aac_cfg.stack_in_ext = true;
+        audioSd.encoder = aac_encoder_init(&aac_cfg);
         if(audioSd.encoder == NULL) {
             ESP_LOGE(TAG, "Failed to create AAC encoder");
             return NULL;
@@ -243,6 +243,7 @@ JkkAudioSdWrite_t *JkkAudioSdWrite_init(int encoder_type, int sample_rate, int c
         ESP_LOGI(TAG, "[0.4] Create jkkRadio.audioMain->wav_encoder to encode data");
         wav_encoder_cfg_t wav_cfg = DEFAULT_WAV_ENCODER_CONFIG();
         wav_cfg.task_core = 1;
+        wav_cfg.stack_in_ext = true;
         audioSd.encoder = wav_encoder_init(&wav_cfg);
         if(audioSd.encoder == NULL) {
             ESP_LOGE(TAG, "Failed to create WAV encoder");

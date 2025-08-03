@@ -755,10 +755,6 @@ void JkkRadioSetStation(uint16_t station){
 
     audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
 
-    if(jkkRadio.audioSdWrite->is_recording) {
-        JkkRadioStopRecording();
-    }
-
     jkkRadio.statusStation = JKK_RADIO_STATUS_CHANGING_STATION;
 
     esp_err_t ret = ESP_OK;
@@ -766,6 +762,10 @@ void JkkRadioSetStation(uint16_t station){
     ret |= audio_pipeline_stop(jkkRadio.audioMain->pipeline);
     ret |= audio_pipeline_wait_for_stop(jkkRadio.audioMain->pipeline);
     ret |= audio_pipeline_terminate(jkkRadio.audioMain->pipeline);
+
+    if(jkkRadio.audioSdWrite->is_recording) {
+        JkkRadioStopRecording();
+    }
 
     if(ret != ESP_OK){
         ESP_LOGI(TAG, "audio_pipeline_reset_ringbuffer Error: %d", ret);

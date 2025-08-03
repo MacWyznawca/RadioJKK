@@ -304,7 +304,9 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
             http_cfg.type = AUDIO_STREAM_READER;
             http_cfg.enable_playlist_parser = true;
             http_cfg.auto_connect_next_track = true;
-            http_cfg.task_stack = 6 * 1024 + 512;
+            http_cfg.stack_in_ext = true;
+            http_cfg.task_stack = 7 * 1024;
+            http_cfg.auto_connect_next_track = true;
 
             http_cfg.user_agent = "RadioJKK32/1.0";
             
@@ -341,6 +343,8 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
             DEFAULT_ESP_M4A_DECODER_CONFIG(),
         };
         esp_decoder_cfg_t auto_dec_cfg = DEFAULT_ESP_DECODER_CONFIG();
+        auto_dec_cfg.stack_in_ext = true;
+        auto_dec_cfg.task_stack = 4 * 1024 + 512;
         audioMain.decoder = esp_decoder_init(&auto_dec_cfg, auto_decode, sizeof(auto_decode) / sizeof(audio_decoder_t));
 
         ESP_LOGI(TAG, "Pointer audio_decoder=%p", audioMain.decoder);
@@ -380,6 +384,7 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
         eq_cfg.task_prio = 7;
         eq_cfg.channel = 2;
         eq_cfg.samplerate = 22050;
+        eq_cfg.stack_in_ext = true;
         audioMain.processing = equalizer_init(&eq_cfg);
         ESP_LOGI(TAG, "Pointer equalizer=%p", audioMain.processing);
         if (audioMain.processing == NULL) {
@@ -536,6 +541,8 @@ esp_err_t JkkAudioMainOnOffProcessing(bool on, audio_event_iface_handle_t evt){
 
     ret = audio_pipeline_unlink(audioMain.pipeline);
 
+    audio_pipeline_remove_listener(audioMain.pipeline);
+
     if(on) {
         ret |= audio_pipeline_link(audioMain.pipeline, &audioMain.linkElementsAll[0], audioMain.linkElementsAllCount);
     }
@@ -576,6 +583,8 @@ void JkkAudioMain_deinit(void) {
         }
         audio_pipeline_unregister(audioMain.pipeline, audioMain.output);
 
+        audio_pipeline_remove_listener(audioMain.pipeline);
+
         /* Release all resources */
         audio_pipeline_deinit(audioMain.pipeline);
         audioMain.pipeline = NULL;
@@ -612,5 +621,4 @@ void JkkAudioMain_deinit(void) {
     audioMain.output_type = -1;
     audioMain.processing_type = -1;
     ESP_LOGI(TAG, "[1.9] Audio main deinitialized");
-    ESP_LOGI(TAG, "[1.10] JkkAudioMain deinit done");
 }
