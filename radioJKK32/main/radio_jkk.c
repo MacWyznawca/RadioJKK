@@ -336,6 +336,14 @@ void JkkRadioSetEqualizer(uint8_t eq) {
     JkkRadioWwwSetEqId(jkkRadio.current_eq);
 }
 
+static void JkkRadioAllStationsSave(void) {
+    for (int i = 0; i < jkkRadio.station_count; i++) {
+        char key[16] = {0};
+        sprintf(key, JKK_RADIO_NVS_STATION_KEY, i);
+        JkkNvsBlobSet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio.jkkRadioStations[i], sizeof(JkkRadioStations_t));
+    }
+}
+
 esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex) {
     ESP_LOGW(TAG, "Reordering station: from %d to %d", oldIndex, newIndex);
     
@@ -393,11 +401,7 @@ esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex) {
         jkkRadio.prev_station++;
     }
     
-    for (int i = 0; i < jkkRadio.station_count; i++) {
-        char key[16] = {0};
-        sprintf(key, JKK_RADIO_NVS_STATION_KEY, i);
-        JkkNvsBlobSet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio.jkkRadioStations[i], sizeof(JkkRadioStations_t));
-    }
+    jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_ALL_STATIONS;
     
     JkkRadioListForWWW();
     JkkRadioWwwSetStationId(jkkRadio.current_station);
@@ -421,6 +425,15 @@ esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex) {
     return ESP_OK;
 }
 
+static void JkkRadioOneStationErase(int id) {
+    if (id < 0 || id >= JKK_RADIO_MAX_STATIONS) {
+        ESP_LOGE(TAG, "JkkRadioOneStationErase Invalid station ID: %d", id);
+        return;
+    }
+    char key[16] = {0};
+    sprintf(key, JKK_RADIO_NVS_STATION_KEY, id);
+    JkkNvsErase(key, JKK_RADIO_NVS_NAMESPACE);
+}
 
 void JkkRadioDeleteStation(uint16_t station){
     ESP_LOGW(TAG, "Deleting station: %d", station);
@@ -434,9 +447,6 @@ void JkkRadioDeleteStation(uint16_t station){
         JkkRadioSetStation(jkkRadio.current_station);
     } 
     ESP_LOGI(TAG, "Removing station %d: %s", index, jkkRadio.jkkRadioStations[index].nameShort);
-    char key[16] = {0};
-    sprintf(key, JKK_RADIO_NVS_STATION_KEY, index);
-    JkkNvsErase(key, JKK_RADIO_NVS_NAMESPACE);
     // Shift remaining stations down
     for(int i = index; i < jkkRadio.station_count - 1; i++) {
         jkkRadio.jkkRadioStations[i] = jkkRadio.jkkRadioStations[i + 1];
@@ -452,7 +462,18 @@ void JkkRadioDeleteStation(uint16_t station){
         ESP_LOGI(TAG, "Station %d deleted successfully. New station count: %d", index, jkkRadio.station_count);
     }
     JkkRadioListForWWW(); 
+    JkkRadioSendMessageToMain(index, JKK_RADIO_CMD_ERASE_FROM_NVS_STATION);
     JkkRadioSaveTimerStart(JKK_RADIO_TO_SAVE_STATION_LIST);
+}
+
+static void JkkRadioOneStationSave(int id) {
+    if (id < 0 || id >= jkkRadio.station_count) {
+        ESP_LOGE(TAG, "JkkRadioOneStationSave Invalid station ID: %d", id);
+        return;
+    }
+    char key[16] = {0};
+    sprintf(key, JKK_RADIO_NVS_STATION_KEY, id);
+    JkkNvsBlobSet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio.jkkRadioStations[id], sizeof(JkkRadioStations_t));
 }
 
 void JkkRadioEditStation(char *csvTxt){
@@ -465,7 +486,7 @@ void JkkRadioEditStation(char *csvTxt){
     if(idtx) {
         int id = atoi(idtx);
         if(id >= jkkRadio.station_count) {
-            ESP_LOGE(TAG, "Invalid station ID: %d", id);
+            ESP_LOGE(TAG, "JkkRadioEditStation Invalid station ID: %d", id);
             return;
         }
         if(id == -1) {
@@ -497,19 +518,19 @@ void JkkRadioEditStation(char *csvTxt){
         } else {
             jkkRadio.jkkRadioStations[id].is_favorite = false; 
         }
-        char key[16] = {0};
-        sprintf(key, JKK_RADIO_NVS_STATION_KEY, id);
         jkkRadio.jkkRadioStations[id].type = JKK_RADIO_UNKNOWN; 
         jkkRadio.jkkRadioStations[id].addFrom = JKK_RADIO_ADD_FROM_WEB; 
         jkkRadio.jkkRadioStations[id].audioDes[0] = '\0'; 
-        JkkNvsBlobSet(key, JKK_RADIO_NVS_NAMESPACE, &jkkRadio.jkkRadioStations[id], sizeof(JkkRadioStations_t));
+        
         ESP_LOGI(TAG, "Updated station %d: URI=%s, NameShort=%s, NameLong=%s",
                  id,
                  jkkRadio.jkkRadioStations[id].uri, 
                  jkkRadio.jkkRadioStations[id].nameShort,
                  jkkRadio.jkkRadioStations[id].nameLong);
         JkkRadioListForWWW(); // Update the list for web server
+        JkkRadioSendMessageToMain(id, JKK_RADIO_CMD_SAVE_TO_NVS_STATION);
         JkkRadioSaveTimerStart(JKK_RADIO_TO_SAVE_STATION_LIST);
+
     } else {
         ESP_LOGE(TAG, "Invalid station ID");
     }
@@ -801,6 +822,10 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
     if(jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_STATION_LIST){
         JkkRadioExportStations("stations.txt");
         jkkRadio.whatToSave &= ~JKK_RADIO_TO_SAVE_STATION_LIST;
+    }
+    if(jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_ALL_STATIONS){
+        JkkRadioAllStationsSave();
+        jkkRadio.whatToSave &= ~JKK_RADIO_TO_SAVE_ALL_STATIONS;
     }
     if(jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_PROVISIONED){
         wifi_prov_mgr_deinit();
@@ -1276,19 +1301,27 @@ static void MainAppTask(void *arg){
         if(msg.source_type == AUDIO_ELEMENT_TYPE_UNKNOW){
             if(msg.cmd == JKK_RADIO_CMD_SET_STATION){
                 int received_value = (int)(intptr_t)msg.data;
-
                 ESP_LOGW(TAG, "JKK_RADIO_CMD_SET_STATION: %d", received_value); 
                 JkkRadioSetStation(received_value);
             }
             else if(msg.cmd == JKK_RADIO_CMD_SET_EQUALIZER){
                 int received_value = (int)(intptr_t)msg.data;
-
                 ESP_LOGW(TAG, "JKK_RADIO_CMD_SET_STATION: %d", received_value); 
                 JkkChangeEq(received_value);
             }
             else if(msg.cmd == JKK_RADIO_CMD_TOGGLE_RECORD){
                 int received_value = (int)(intptr_t)msg.data;
                 JkkToggleRecording(received_value);
+            }
+            else if(msg.cmd == JKK_RADIO_CMD_SAVE_TO_NVS_STATION){
+                int received_value = (int)(intptr_t)msg.data;
+                ESP_LOGW(TAG, "JKK_RADIO_CMD_SAVE_TO_NVS_STATION: %d", received_value);
+                JkkRadioOneStationSave(received_value);
+            }
+            else if(msg.cmd == JKK_RADIO_CMD_ERASE_FROM_NVS_STATION){
+                int received_value = (int)(intptr_t)msg.data;
+                ESP_LOGW(TAG, "JKK_RADIO_CMD_ERASE_FROM_NVS_STATION: %d", received_value);
+                JkkRadioOneStationErase(received_value);
             }
             else if(msg.cmd == JKK_RADIO_CMD_TOGGLE_PLAY_PAUSE){
                 ESP_LOGW(TAG, "JKK_RADIO_CMD_TOGGLE_PLAY_PAUSE"); 

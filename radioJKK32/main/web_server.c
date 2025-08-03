@@ -264,7 +264,7 @@ void start_web_server(void) {
     config.max_open_sockets = 15;
     config.max_uri_handlers = 15;
     config.task_priority = tskIDLE_PRIORITY + 1;
-    config.task_caps = MALLOC_CAP_INTERNAL| MALLOC_CAP_8BIT; // MALLOC_CAP_SPIRAM
+    config.task_caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT; // MALLOC_CAP_SPIRAM // MALLOC_CAP_INTERNAL
 
     if (httpd_start(&server, &config) == ESP_OK) {
         httpd_register_uri_handler(server, &uri_root);
