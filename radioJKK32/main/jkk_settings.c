@@ -158,10 +158,6 @@ static void JkkRadioStationEmbeddedRead(JkkRadio_t *jkkRadio, char const *statio
     lineStr[index] = strtok(stations, "\n");
     // loop through the string to extract all other tokens
     while( lineStr[index] != NULL ) {
-        if (lineStr[index][0] == '#' || lineStr[index][0] == '\n') {
-            lineStr[index] = strtok(NULL, "\n"); 
-            continue; // Skip comments and empty lines
-        }
         index++;
         if (index >= JKK_RADIO_MAX_EBMEDDED_STATIONS) {
             ESP_LOGW(TAG, "Reached maximum station count (%d), stopping reading from file", JKK_RADIO_MAX_EBMEDDED_STATIONS);
