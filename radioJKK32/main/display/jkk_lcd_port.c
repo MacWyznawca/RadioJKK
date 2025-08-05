@@ -55,7 +55,7 @@ static const char *TAG = "LCD PORT";
 #define JKK_RADIO_LCD_CMD_BITS           8
 #define JKK_RADIO_LCD_PARAM_BITS         8
 
-#define JKK_RADIO_LVGL_TASK_STACK_SIZE   (6 * 1024)
+#define JKK_RADIO_LVGL_TASK_STACK_SIZE   (5 * 1024)
 #define JKK_RADIO_LVGL_TASK_PRIORITY     3
 #define JKK_RADIO_LVGL_TASK_CPU          1
 #define JKK_RADIO_LVGL_TICK_PERIOD_MS    5
@@ -261,9 +261,9 @@ lv_disp_t *JkkLcdPortInit(void){
     lv_display_set_flush_cb(display, jkk_lcd_lvgl_flush_cb);
 
     ESP_LOGI(TAG, "Register io panel event callback for LVGL flush ready notification");
-    const esp_lcd_panel_io_callbacks_t cbs = {
-        .on_color_trans_done = jkk_lcd_notify_lvgl_flush_ready,
-    };
+ //   const esp_lcd_panel_io_callbacks_t cbs = {
+ //       .on_color_trans_done = jkk_lcd_notify_lvgl_flush_ready,
+ //   };
     /* Register done callback */
  //   esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display);
 

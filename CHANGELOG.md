@@ -7,17 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2025-08-05
+
 ### Added
-- Error display in web page when recording don't start
+- Error message display in web page when recording don't start
 - Header of record info file with start and end time of record
 
 ### Changed
+- Memory optimizations
+- Change station optimizations
 - Moved HTTP server task stak to SPIRAM
 - Moved NVS operation to main task or RTOS timer
 
 ### Fixed
 - Fixed a rare reboot bug when switching stations while recording is on
-
 - Fixed absence of record info in file (version without display)
 - Improved web page error handling and information
 

@@ -42,7 +42,7 @@ menu "RadioJKK Configuration"
 
 	config JKK_RADIO_USING_I2C_LCD
 		bool "Use I2C LCD"
-		default y
+		default n
 		help
 			Choose y to use i2c LCD (OLED). Settings limited Keypad
 

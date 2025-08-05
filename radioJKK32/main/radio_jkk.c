@@ -753,6 +753,23 @@ void JkkRadioSetStation(uint16_t station){
         return;
     }
 
+    if(jkkRadio.audioSdWrite->is_recording) {
+        if(!JkkAudioMainProcessState()){
+            ESP_LOGW(TAG, "Stop rec first!");
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+     //       JkkLcdStationTxt("Stop rec first!");
+#endif
+     //       JkkRadioWwwSetStationId(-2);
+     //       vTaskDelay(pdMS_TO_TICKS(2000)); 
+     //       JkkRadioWwwSetStationId(jkkRadio.current_station);
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+     //       JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
+#endif
+            return;
+        }
+        JkkRadioStopRecording();
+    }
+
     audio_hal_enable_pa(jkkRadio.board_handle->audio_hal, false);
 
     jkkRadio.statusStation = JKK_RADIO_STATUS_CHANGING_STATION;
@@ -761,27 +778,29 @@ void JkkRadioSetStation(uint16_t station){
 
     ret |= audio_pipeline_stop(jkkRadio.audioMain->pipeline);
     ret |= audio_pipeline_wait_for_stop(jkkRadio.audioMain->pipeline);
+    ret |= audio_pipeline_change_state(jkkRadio.audioMain->pipeline, AEL_STATE_INIT);
+    ret |= audio_pipeline_reset_items_state(jkkRadio.audioMain->pipeline);
+    ret |= audio_pipeline_reset_elements(jkkRadio.audioMain->pipeline);
+    ret |= audio_pipeline_reset_ringbuffer(jkkRadio.audioMain->pipeline);
     ret |= audio_pipeline_terminate(jkkRadio.audioMain->pipeline);
-
-    if(jkkRadio.audioSdWrite->is_recording) {
-        JkkRadioStopRecording();
-    }
 
     if(ret != ESP_OK){
         ESP_LOGI(TAG, "audio_pipeline_reset_ringbuffer Error: %d", ret);
         jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
     }
+
     ret = ESP_OK;
 
     ESP_LOGI(TAG, "Station change - Name: %s, Url: %s", jkkRadio.jkkRadioStations[station].nameLong, jkkRadio.jkkRadioStations[station].uri);
     ret |= JkkAudioSetUrl(jkkRadio.jkkRadioStations[station].uri, false);
 
-    ret |= audio_pipeline_reset_ringbuffer(jkkRadio.audioMain->pipeline);
-    ret |= audio_pipeline_reset_elements(jkkRadio.audioMain->pipeline);
+   // ret |= audio_pipeline_reset_ringbuffer(jkkRadio.audioMain->pipeline);
+  //  ret |= audio_pipeline_reset_elements(jkkRadio.audioMain->pipeline);
+    // ret |= audio_pipeline_resume(jkkRadio.audioMain->pipeline);
     ret |= audio_pipeline_run(jkkRadio.audioMain->pipeline);
 
     if(ret != ESP_OK){
-        ESP_LOGI(TAG, "audio_pipeline_run Error: %d", ret);
+        ESP_LOGI(TAG, "audio_pipeline_resume Error: %d", ret);
         jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
     }
     else {

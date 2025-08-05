@@ -533,9 +533,12 @@ esp_err_t JkkAudioMainOnOffProcessing(bool on, audio_event_iface_handle_t evt){
         ESP_LOGI(TAG, "Pipeline same state, no change");
         return ESP_OK;
     }
+    
     esp_err_t ret = audio_pipeline_stop(audioMain.pipeline);
     ret |= audio_pipeline_wait_for_stop(audioMain.pipeline);
     ret |= audio_pipeline_reset_ringbuffer(audioMain.pipeline);
+    ret |= audio_pipeline_reset_elements(audioMain.pipeline);
+    ret |= audio_pipeline_reset_items_state(audioMain.pipeline);
 
     if(ret != ESP_OK) return ret;
 
@@ -552,7 +555,8 @@ esp_err_t JkkAudioMainOnOffProcessing(bool on, audio_event_iface_handle_t evt){
 
     audio_pipeline_set_listener(audioMain.pipeline, evt);
 
-    ret |= audio_pipeline_run(audioMain.pipeline);
+   // ret |= audio_pipeline_run(audioMain.pipeline);
+    ret |= audio_pipeline_resume(audioMain.pipeline);
     if(ret == ESP_OK) audioMain.lineWithProcess = on;
     return ret;
 }
@@ -569,6 +573,7 @@ void JkkAudioMain_deinit(void) {
         ESP_LOGI(TAG, "[1.7] Unregister all elements from audio pipeline");
 
         audio_pipeline_unregister(audioMain.pipeline, audioMain.input);
+
         if (audioMain.decoder != NULL) {
             audio_pipeline_unregister(audioMain.pipeline, audioMain.decoder);
         }
