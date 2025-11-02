@@ -7,6 +7,7 @@
 ### 🌐 **Lokalny serwer WWW - NOWOŚĆ!**
 
 - **Zdalne sterowanie** przez przeglądarkę internetową: głośność, wybór stacji, zmiana equalizera
+- **Dedykowany przycisk LCD on/off** w interfejsie WWW do ręcznego włączania/wyłączania wyświetlacza (widoczny tylko gdy wyświetlacz jest obecny)
 - **Edycja listy stacji radiowych** - zmiany, dodawanie, usuwanie i zmiana kolejności
 - **Automatyczne wykrywanie w sieci** dzięki mDNS/Bonjour/NetBIOS
 - **Responsywny interfejs** działający na wszystkich urządzeniach
@@ -17,7 +18,7 @@
 
 - Zmiana kolejności stacji radiowych przez WWW
 - Automatyczny zapis aktualnej listy stacji z pamięci flash urządzenia (NVS) na kartę SD
-- Możliwość pobrania aktualniej listy stacji w formacie .csv przez przeglądarkę
+- Możliwość pobrania aktualnej listy stacji w formacie .csv przez przeglądarkę
 - Wybór equalizera w przeglądarce
 - Zwiększona maksymalna liczba stacji do 50
 - Maksymalna liczba equalizerów zwiększona do 20

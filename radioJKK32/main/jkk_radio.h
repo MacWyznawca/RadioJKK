@@ -83,7 +83,8 @@ typedef enum  {
     JKK_RADIO_TO_SAVE_STATION_LIST  = 1 << 4,
     JKK_RADIO_TO_SAVE_PROVISIONED  = 1 << 5, // Save WiFi provisioning state
     JKK_RADIO_TO_SAVE_ALL_STATIONS  = 1 << 6, // Save all stations to NVS
-    JKK_RADIO_TO_SAVE_ALL = JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME | JKK_RADIO_TO_SAVE_PLAY | JKK_RADIO_TO_SAVE_STATION_LIST | JKK_RADIO_TO_SAVE_PROVISIONED | JKK_RADIO_TO_SAVE_ALL_STATIONS,
+    JKK_RADIO_TO_DO_LCD_OFF = 1 << 7, // Turn off LCD panel
+    JKK_RADIO_TO_SAVE_ALL = JKK_RADIO_TO_DO_LCD_OFF | JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME | JKK_RADIO_TO_SAVE_PLAY | JKK_RADIO_TO_SAVE_STATION_LIST | JKK_RADIO_TO_SAVE_PROVISIONED | JKK_RADIO_TO_SAVE_ALL_STATIONS,
     JKK_RADIO_TO_SAVE_MAX = JKK_RADIO_TO_SAVE_ALL + 1,
 } toSave_e;
 
@@ -140,7 +141,7 @@ typedef struct JkkRadio_s {
     int eq_count;
     bool is_playing; // Flag indicating if the radio is currently playing
     status_e statusStation; 
-    toSave_e whatToSave;
+    toSave_e whatToDo;
     JkkRadioStations_t *jkkRadioStations; // Pointer to the array of radio stations
     bool isProvisioned;
     bool runWebServer;
@@ -264,6 +265,11 @@ esp_err_t JkkRadioToggleRecording(void);
  * @return true if playing, false if stopped or paused
  */
 bool JkkRadioIsPlaying(void);
+
+/**
+ * @brief Turn on the LCD display
+ */
+void JkkRadioLcdOn(void);
 
 #ifdef __cplusplus
 }

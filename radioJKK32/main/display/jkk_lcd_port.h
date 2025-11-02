@@ -8,6 +8,7 @@
 #pragma once
 
 #include <string.h>
+#include "lvgl.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,6 +31,19 @@ bool JkkLcdPortLock(uint32_t timeout_ms);
  * @brief Unlock LVGL mutex
  */
 void JkkLcdPortUnlock(void);
+
+/**
+ * @brief Turn LCD panel on or off
+ * @param turn_on true to turn on, false to turn off
+ * @return Current state of the panel (true = on, false = off)
+ */
+bool JkkLcdPortOnOffLcd(bool turn_on);
+
+/**
+ * @brief Get current LCD panel state
+ * @return true if panel is on, false if off
+ */
+bool JkkLcdPortGetLcdState(void);
 
 #ifdef __cplusplus
 }

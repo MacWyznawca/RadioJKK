@@ -7,6 +7,10 @@
 #include "web_server.h"
 #include "jkk_radio.h"
 
+#ifdef CONFIG_JKK_RADIO_USING_I2C_LCD
+#include "display/jkk_lcd_port.h"
+#endif
+
 static const char *TAG = "JKK_WEB";
 
 static bool webServerRunning = false;
@@ -52,10 +56,39 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 }
 
 esp_err_t info_get_handler(httpd_req_t *req) {
-    char current_status[64] = {0};
+    char current_status[80] = {0};
     snprintf(current_status, sizeof(current_status), "%d;%d;%d;%d;%d", volume, station_id, eq_id, JkkRadioIsPlaying() ? 1 : 0, is_rec);
     httpd_resp_set_type(req, "text/plain");
+        
+    // Dodajemy status LCD jako szósty parametr (0=off, 1=on)
+    snprintf(current_status, sizeof(current_status), "%d;%d;%d;%d;%d;%d", volume, station_id, eq_id, JkkRadioIsPlaying() ? 1 : 0, is_rec,
+#ifdef CONFIG_JKK_RADIO_USING_I2C_LCD
+    JkkLcdPortGetLcdState() ? 1 : 0
+#else
+    -1
+#endif
+    );
+    httpd_resp_set_type(req, "text/plain");
     httpd_resp_sendstr(req, current_status);
+    return ESP_OK;
+}
+
+esp_err_t lcd_toggle_post_handler(httpd_req_t *req) {
+    char buf[4] = {0};
+    if (httpd_req_recv(req, buf, sizeof(buf)-1) <= 0) return ESP_FAIL;
+    int turn_on = atoi(buf);
+    bool new_state = 0;
+#ifdef CONFIG_JKK_RADIO_USING_I2C_LCD
+    if(turn_on){
+        JkkRadioLcdOn();
+        new_state = JkkLcdPortGetLcdState();
+    }
+    else
+        new_state = JkkLcdPortOnOffLcd(false);
+#endif
+    char resp[8];
+    snprintf(resp, sizeof(resp), "%d", new_state ? 1 : 0);
+    httpd_resp_sendstr(req, resp);
     return ESP_OK;
 }
 
@@ -232,6 +265,8 @@ httpd_uri_t uri_stop = { .uri = "/stop", .method = HTTP_POST, .handler = stop_po
 httpd_uri_t uri_toggle = { .uri = "/toggle", .method = HTTP_POST, .handler = toggle_play_pause_post_handler };
 httpd_uri_t uri_rec_toggle = { .uri = "/rec_toggle", .method = HTTP_POST, .handler = toggle_record_post_handler };
 
+httpd_uri_t uri_lcd_toggle = { .uri = "/lcd_toggle", .method = HTTP_POST, .handler = lcd_toggle_post_handler };
+
 #define MDNS_INSTANCE "radio jkk web server"
 #define MDNS_HOST_NAME "RadioJKK"
     
@@ -261,8 +296,8 @@ void start_web_server(void) {
     config.stack_size = 4096;
     config.server_port = 80;
     config.core_id = 1; 
-    config.max_open_sockets = 15;
-    config.max_uri_handlers = 15;
+    config.max_open_sockets = 16;
+    config.max_uri_handlers = 16;
     config.task_priority = tskIDLE_PRIORITY + 1;
     config.task_caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT; // MALLOC_CAP_SPIRAM // MALLOC_CAP_INTERNAL
 
@@ -281,6 +316,7 @@ void start_web_server(void) {
         httpd_register_uri_handler(server, &uri_stop);
         httpd_register_uri_handler(server, &uri_toggle);
         httpd_register_uri_handler(server, &uri_rec_toggle);
+        httpd_register_uri_handler(server, &uri_lcd_toggle);
         ESP_LOGI(TAG, "Serwer WWW uruchomiony");
 
         initialise_mdns();

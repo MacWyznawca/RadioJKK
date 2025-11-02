@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2025-11-02
+
+### Added
+- LCD display turns off automatically 15 seconds after stopping playback (by long pressing [vol-] button or via web server stop/pause)
+- **Web interface: dedicated LCD on/off button** for manual display control (visible only if display is present)
+
 ## [1.0.4] - 2025-08-05
 
 ### Added

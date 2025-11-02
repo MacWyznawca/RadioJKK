@@ -11,6 +11,6 @@ dependencies:
         version: "~0.6"
   lvgl/lvgl:
     public: true
-    version: '>=9,<10'
+    version: '>=9,<9.4'
   esp_lcd_sh1107: "^1"
   espressif/mdns: "^1.0.3"

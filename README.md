@@ -6,7 +6,8 @@
 
 ### 🌐 **Local Web Server - NEW!**
 
-- **Remote control** via a web browser: volume, station selection, equalizer adjustment  
+- **Remote control** via a web browser: volume, station selection, equalizer adjustment
+- **Dedicated LCD on/off button** in the web interface for manual display control (visible only if display is present)
 - **Edit the radio station list** – modify, add, delete, and reorder entries  
 - **Automatic network discovery** using mDNS/Bonjour/NetBIOS  
 - **Responsive interface** that works on all devices  

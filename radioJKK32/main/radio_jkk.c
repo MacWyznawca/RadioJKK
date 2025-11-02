@@ -74,6 +74,7 @@
 #include "lvgl.h"
 #include "display/jkk_mono_lcd.h"
 #include "vmeter/volume_meter.h"
+#include "display/jkk_lcd_port.h"
 #endif
 #include "web_server.h"
 
@@ -167,7 +168,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
             }
             case WIFI_PROV_CRED_SUCCESS:
                 ESP_LOGI(TAG, "Provisioning successful");
-                JkkRadioSaveTimerStart(jkkRadio.whatToSave | JKK_RADIO_TO_SAVE_PROVISIONED); 
+                JkkRadioSaveTimerStart(jkkRadio.whatToDo | JKK_RADIO_TO_SAVE_PROVISIONED); 
                 break;
             case WIFI_PROV_END:
                 ESP_LOGW(TAG, "Provisioning END");
@@ -211,7 +212,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
 #endif
         /* Signal main application to continue execution */
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
-        //JkkRadioSaveTimerStart(jkkRadio.whatToSave | JKK_RADIO_TO_SAVE_PROVISIONED); 
+        //JkkRadioSaveTimerStart(jkkRadio.whatToDo | JKK_RADIO_TO_SAVE_PROVISIONED); 
     } else if (event_base == PROTOCOMM_SECURITY_SESSION_EVENT) {
         switch (event_id) {
             case PROTOCOMM_SECURITY_SESSION_SETUP_OK:
@@ -376,17 +377,17 @@ esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex) {
     
     if (jkkRadio.current_station == oldIndex) {
         jkkRadio.current_station = newIndex;
-        jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
+        jkkRadio.whatToDo |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
     } else if (oldIndex < newIndex && 
                jkkRadio.current_station > oldIndex && 
                jkkRadio.current_station <= newIndex) {
         jkkRadio.current_station--;
-        jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
+        jkkRadio.whatToDo |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
     } else if (oldIndex > newIndex && 
                jkkRadio.current_station >= newIndex && 
                jkkRadio.current_station < oldIndex) {
         jkkRadio.current_station++;
-        jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
+        jkkRadio.whatToDo |= JKK_RADIO_TO_SAVE_CURRENT_STATION;
     }
     
     if (jkkRadio.prev_station == oldIndex) {
@@ -401,7 +402,7 @@ esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex) {
         jkkRadio.prev_station++;
     }
     
-    jkkRadio.whatToSave |= JKK_RADIO_TO_SAVE_ALL_STATIONS;
+    jkkRadio.whatToDo |= JKK_RADIO_TO_SAVE_ALL_STATIONS;
     
     JkkRadioListForWWW();
     JkkRadioWwwSetStationId(jkkRadio.current_station);
@@ -421,7 +422,7 @@ esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex) {
 #endif
     
     ESP_LOGI(TAG, "Station successfully moved from position %d to %d", oldIndex, newIndex);
-    JkkRadioSaveTimerStart(jkkRadio.whatToSave | JKK_RADIO_TO_SAVE_STATION_LIST);
+    JkkRadioSaveTimerStart(jkkRadio.whatToDo | JKK_RADIO_TO_SAVE_STATION_LIST);
     return ESP_OK;
 }
 
@@ -823,11 +824,11 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
     if(xTimer == NULL) return;
     ESP_LOGI(TAG, "SaveTimerHandle");
 
-    if((jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_CURRENT_STATION) > 0) {
+    if((jkkRadio.whatToDo & JKK_RADIO_TO_SAVE_CURRENT_STATION) > 0) {
         jkkRadio.statusStation = JKK_RADIO_STATUS_NORMAL;
     }
 
-    if(jkkRadio.whatToSave & (JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME | JKK_RADIO_TO_SAVE_PLAY)) {
+    if(jkkRadio.whatToDo & (JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME | JKK_RADIO_TO_SAVE_PLAY)) {
         bool isPlaying = JkkAudioIsPlaying();
         JkkRadioDataToSave_t toSave = {
             .current_eq = jkkRadio.current_eq,
@@ -836,27 +837,39 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
             .is_playing = isPlaying,
         };
         JkkNvs64_set("stateStEq", JKK_RADIO_NVS_NAMESPACE, toSave.all64);
-        jkkRadio.whatToSave &= ~(JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME | JKK_RADIO_TO_SAVE_PLAY);
+        jkkRadio.whatToDo &= ~(JKK_RADIO_TO_SAVE_CURRENT_STATION | JKK_RADIO_TO_SAVE_EQ | JKK_RADIO_TO_SAVE_VOLUME | JKK_RADIO_TO_SAVE_PLAY);
     }
-    if(jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_STATION_LIST){
+    if(jkkRadio.whatToDo & JKK_RADIO_TO_SAVE_STATION_LIST){
         JkkRadioExportStations("stations.txt");
-        jkkRadio.whatToSave &= ~JKK_RADIO_TO_SAVE_STATION_LIST;
+        jkkRadio.whatToDo &= ~JKK_RADIO_TO_SAVE_STATION_LIST;
     }
-    if(jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_ALL_STATIONS){
+    if(jkkRadio.whatToDo & JKK_RADIO_TO_SAVE_ALL_STATIONS){
         JkkRadioAllStationsSave();
-        jkkRadio.whatToSave &= ~JKK_RADIO_TO_SAVE_ALL_STATIONS;
+        jkkRadio.whatToDo &= ~JKK_RADIO_TO_SAVE_ALL_STATIONS;
     }
-    if(jkkRadio.whatToSave & JKK_RADIO_TO_SAVE_PROVISIONED){
+    if(jkkRadio.whatToDo & JKK_RADIO_TO_SAVE_PROVISIONED){
         wifi_prov_mgr_deinit();
         stop_web_server();
         start_web_server();
         ESP_LOGI(TAG, "Provisioning ended");
-        jkkRadio.whatToSave &= ~JKK_RADIO_TO_SAVE_PROVISIONED;
+        jkkRadio.whatToDo &= ~JKK_RADIO_TO_SAVE_PROVISIONED;
     }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+    if(jkkRadio.whatToDo & JKK_RADIO_TO_DO_LCD_OFF) {
+        JkkLcdPortOnOffLcd(false);
+        jkkRadio.whatToDo &= ~JKK_RADIO_TO_DO_LCD_OFF;
+    }
     JkkLcdIpTxt("");
 #endif
 } 
+
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+void JkkRadioLcdOn(void) {
+    if(JkkLcdPortOnOffLcd(true)) {
+        jkkRadio.whatToDo &= ~JKK_RADIO_TO_DO_LCD_OFF;
+    }
+}
+#endif
 
 esp_err_t JkkRadioSaveTimerStart(toSave_e toSave) {
     if(jkkRadio.waitTimer_h == NULL) {
@@ -868,10 +881,10 @@ esp_err_t JkkRadioSaveTimerStart(toSave_e toSave) {
         return ESP_OK;
     }
     if(toSave > JKK_RADIO_TO_SAVE_ALL){
-        jkkRadio.whatToSave = 0;
+        jkkRadio.whatToDo = 0;
         return ESP_OK;
     }
-    jkkRadio.whatToSave |= toSave;
+    jkkRadio.whatToDo |= toSave;
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdIpTxt(".");
 #endif
@@ -900,6 +913,7 @@ void JkkRadioPlay(void) {
     }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
     if (JkkRadioIsPlaying()) {
+        JkkRadioLcdOn();
         JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
     }
 #endif
@@ -923,6 +937,7 @@ void JkkRadioPause(void) {
     if (!JkkRadioIsPlaying()) {
         JkkLcdStationTxt("| PAUSED | press long vol+ to start");
         JkkLcdVolumeIndicatorCallback(0,0);
+        JkkRadioSaveTimerStart(JKK_RADIO_TO_DO_LCD_OFF);
     }
 #endif
 }
@@ -945,6 +960,7 @@ void JkkRadioStop(void) {
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
     JkkLcdStationTxt("- STOPPED - press long vol+ to start");
     JkkLcdVolumeIndicatorCallback(0,0);
+    JkkRadioSaveTimerStart(JKK_RADIO_TO_DO_LCD_OFF);
 #endif
 }
 
@@ -1428,6 +1444,11 @@ static void MainAppTask(void *arg){
         }
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
         if (msg.source_type == PERIPH_ID_BUTTON && (msg.cmd == PERIPH_BUTTON_RELEASE || msg.cmd == PERIPH_BUTTON_LONG_PRESSED || msg.cmd == PERIPH_BUTTON_PRESSED)) {
+            if(JkkLcdPortGetLcdState() == false){
+                ESP_LOGI(TAG, "LCD backlight is off, turn it on");
+                JkkRadioLcdOn();
+                continue;
+            }
             if ((int)msg.data == get_input_set_id()) {
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
                     jkkRollerMode_t rollerMode = JkkLcdRollerMode();

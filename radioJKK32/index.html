@@ -333,6 +333,9 @@
         <button id="record-btn" onclick="toggleRecord()" class="control-button" style="background-color: #dc3545;">
             🔴 Rec
         </button>
+        <button id="lcd-btn" onclick="toggleLcd()" class="control-button" style="background-color: #888; display: none;">
+            🖥️ LCD
+        </button>
         <div style="flex: 1; text-align: right; min-width: 120px;">
             <span id="combined-status" style="font-weight: bold; font-size: 1rem;">⏸️ Stopped</span>
         </div>
@@ -388,22 +391,26 @@
         let current_station = -1;
         let current_eq = -1;
         let draggedIndex = -1;
-        let isPlaying = false;
-        let isRecording = 0;
+    let isPlaying = false;
+    let isRecording = 0;
+    let lcdState = -1;
 
         function refreshCurrentStationAndVolume() {
             fetch("/status")
                 .then(r => r.text())
                 .then(t => {
-                    const [volx, idx, eqidx, playing, recording] = t.split(';');
+                    // Oczekujemy: vol;station_id;eq_id;isPlaying;isRecording;lcdState
+                    const [volx, idx, eqidx, playing, recording, lcd] = t.split(';');
                     const vol = parseInt(volx);
                     let id = parseInt(idx);
                     let eq_id = parseInt(eqidx);
                     isPlaying = parseInt(playing) == 1;
                     isRecording = parseInt(recording);
+                    lcdState = parseInt(lcd);
 
                     const playBtn = document.getElementById("play-btn");
                     const recordBtn = document.getElementById("record-btn");
+                    const lcdBtn = document.getElementById("lcd-btn");
                     const combinedStatus = document.getElementById("combined-status");
 
                     // Update play button
@@ -423,6 +430,22 @@
                         if (isRecording === -1){
                             recordBtn.innerHTML = "❌ Error";
                             recordBtn.style.backgroundColor = "#dc3545"; // Red when error
+                        }
+                    }
+
+                    // LCD button
+                    if (lcdBtn) {
+                        if (lcdState === 1) {
+                            lcdBtn.innerHTML = "🖥️ On";
+                            lcdBtn.style.backgroundColor = "#28a745";
+                            lcdBtn.style.display = "inline-block";
+                        } else if (lcdState === 0) {
+                            lcdBtn.innerHTML = "🖥️ Off";
+                            lcdBtn.style.backgroundColor = "#888";
+                            lcdBtn.style.display = "inline-block";
+                        } else {
+                            // lcdState == -1 lub inny: ukryj przycisk
+                            lcdBtn.style.display = "none";
                         }
                     }
 
@@ -467,6 +490,23 @@
                 });
 
             currenttRow(current_station);
+        }
+        function toggleLcd() {
+            // Przełączamy LCD na przeciwny stan
+            const newState = lcdState === 1 ? 0 : 1;
+            fetch("/lcd_toggle", {
+                method: "POST",
+                body: newState.toString()
+            })
+            .then(r => r.text())
+            .then(response => {
+                // Odpowiedź to "1" lub "0" (nowy stan)
+                lcdState = parseInt(response);
+                refreshCurrentStationAndVolume();
+            })
+            .catch(error => {
+                // Można dodać powiadomienie o błędzie
+            });
         }
 
         function refreshStationList() {

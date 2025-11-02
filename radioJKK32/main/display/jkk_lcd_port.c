@@ -23,6 +23,8 @@
 
 #include "../jkk_radio.h"
 
+#include "jkk_lcd_port.h"
+
 
 #if CONFIG_JKK_RADIO_LCD_CONTROLLER_SH1107
 #include "esp_lcd_sh1107.h"
@@ -69,6 +71,8 @@ static TaskHandle_t dispaskHandle = NULL;
 static SemaphoreHandle_t lvglMux = NULL;
 
 static lv_disp_t *display = NULL;
+
+static bool panelIsOn = false;
 
 bool JkkLcdPortLock(uint32_t timeout_ms){
     assert(lvglMux && "LvglJkkInit must be called first");
@@ -156,6 +160,28 @@ static uint32_t MsTick(void){
     return esp_timer_get_time() / 1000;
 }
 
+bool JkkLcdPortOnOffLcd(bool turn_on){
+    esp_err_t ret = ESP_OK;
+    if(turn_on && !panelIsOn){
+        esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(display);
+        ret = esp_lcd_panel_disp_on_off(panel_handle, true);
+        if (ret == ESP_OK) {
+            panelIsOn = true;
+        }
+    } else if(!turn_on && panelIsOn){
+        esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(display);
+        ret = esp_lcd_panel_disp_on_off(panel_handle, false);
+        if (ret == ESP_OK) {
+            panelIsOn = false;
+        }
+    }
+    return panelIsOn;
+}
+
+bool JkkLcdPortGetLcdState(void){
+    return panelIsOn;
+}
+
 lv_disp_t *JkkLcdPortInit(void){
     esp_err_t ret = ESP_OK;
 
@@ -229,6 +255,7 @@ lv_disp_t *JkkLcdPortInit(void){
     esp_lcd_panel_mirror(panel_handle, true, true);
 
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
+    panelIsOn = true;
 
 #if CONFIG_JKK_RADIO_LCD_CONTROLLER_SH1107
     esp_lcd_panel_invert_color(panel_handle, true);
