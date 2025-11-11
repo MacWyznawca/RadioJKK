@@ -303,10 +303,9 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
             http_cfg.event_handle = _http_stream_event_handle;
             http_cfg.type = AUDIO_STREAM_READER;
             http_cfg.enable_playlist_parser = true;
-            http_cfg.auto_connect_next_track = true;
+            http_cfg.auto_connect_next_track = false;
             http_cfg.stack_in_ext = true;
             http_cfg.task_stack = 7 * 1024;
-            http_cfg.auto_connect_next_track = true;
 
             http_cfg.user_agent = "RadioJKK32/1.0";
             
@@ -341,6 +340,7 @@ JkkAudioMain_t *JkkAudioMain_init(int inType, int outType, int processingType, i
             DEFAULT_ESP_AMRWB_DECODER_CONFIG(),
             DEFAULT_ESP_OPUS_DECODER_CONFIG(),
             DEFAULT_ESP_M4A_DECODER_CONFIG(),
+            DEFAULT_ESP_TS_DECODER_CONFIG(),
         };
         esp_decoder_cfg_t auto_dec_cfg = DEFAULT_ESP_DECODER_CONFIG();
         auto_dec_cfg.stack_in_ext = true;

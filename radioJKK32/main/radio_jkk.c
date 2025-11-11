@@ -563,11 +563,11 @@ void JkkRadioSetVolume(uint8_t vol){
 void JkkRadioListForWWW(void){
     char *webOptions = NULL;
 
-    webOptions = heap_caps_calloc(jkkRadio.station_count, 128 + 128 + 32, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    webOptions = heap_caps_calloc(jkkRadio.station_count, 128 + 256 + 32, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     for (int i = 0; i < jkkRadio.station_count; i++) {
-        char stationName[128 + 128 + 44] = {0};
+        char stationName[128 + 256 + 44] = {0};
         snprintf(stationName, sizeof(stationName), "%d;%s;%s;%s", i, jkkRadio.jkkRadioStations[i].nameShort, jkkRadio.jkkRadioStations[i].nameLong, jkkRadio.jkkRadioStations[i].uri);
-        strncat(webOptions, stationName, 128 + 128 + 44);
+        strncat(webOptions, stationName, 128 + 256 + 44);
         if(i < jkkRadio.station_count - 1) strcat(webOptions, "\n");
     }
     JkkRadioWwwUpdateStationList(webOptions);

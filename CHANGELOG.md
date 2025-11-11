@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2025-11-11
+
+### Added
+- Support for TS AAC audio codec (enables playback of BBC Radio stations and similar streams)
+
+### Fixed
+- URLs with .m3u8 playlists now play correctly without stopping or errors after a few seconds
+
 ## [1.0.5] - 2025-11-02
 
 ### Added

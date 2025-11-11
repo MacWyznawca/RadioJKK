@@ -101,7 +101,7 @@ typedef struct JkkRadioEqualizer_s {
 } JkkRadioEqualizer_t;
 
 typedef struct JkkRadioStations_s {
-    char uri[128]; // URI of the radio station
+    char uri[256]; // URI of the radio station
     char nameShort[32]; // Name of the radio station
     char nameLong[128]; // Description of the radio station
     char audioDes[16]; // Additional audio description of the station
