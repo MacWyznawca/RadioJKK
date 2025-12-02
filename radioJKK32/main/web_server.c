@@ -281,8 +281,7 @@ static void initialise_mdns(void)
         {"path", "/"}
     };
 
-    ESP_ERROR_CHECK(mdns_service_add("RadioJKK", "_http", "_tcp", 80, serviceTxtData,
-                                     sizeof(serviceTxtData) / sizeof(serviceTxtData[0])));
+    ESP_ERROR_CHECK(mdns_service_add("RadioJKK", "_http", "_tcp", 80, serviceTxtData, sizeof(serviceTxtData) / sizeof(serviceTxtData[0])));
     netbiosns_init();
     netbiosns_set_name(MDNS_HOST_NAME);
 }

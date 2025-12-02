@@ -11,4 +11,4 @@ dependencies:
     public: true
     version: '>=9,<9.4'
   esp_lcd_sh1107: "^1"
-  espressif/mdns: "^1.9.0"
+  espressif/mdns: "^1.9.1"

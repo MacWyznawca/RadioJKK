@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.7] - 2025-12-02
+
+### Fixed
+- A serious bug related to the inability to use **ESP SoftAP Prov**, caused by the SoftAP mode not starting on the device, has been fixed.
+
+
 ## [1.0.6] - 2025-11-11
 
 ### Added
