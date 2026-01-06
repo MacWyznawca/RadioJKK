@@ -2,9 +2,9 @@ http://stream2.nadaje.com:9248/prw.aac;RW;Radio Wrocław;0;5
 http://stream2.nadaje.com:9228/ram.aac;RAM;Radio RAM Wrocław;0;0
 http://stream2.nadaje.com:9238/rwkultura.aac;RWK;Radio Wrocław Kultura;1;1
 http://stream.radioluz.pl:8000/luzlofi.ogg;LUZ;Akademickie Radio Luz;0;1
-http://mp3.polskieradio.pl:8900/;PR1;Polskie Radio Program Pierwszy;0;2
+http://mp3.polskieradio.pl:8900/;PR1;Polskie Radio Program Pierwszy;0;0
 http://mp3.polskieradio.pl:8902/;PR2;Polskie Radio Program Drugi;0;1
-http://mp3.polskieradio.pl:8904/;PR3;Polskie Radio Program Trzeci;0;1
+http://41.dktr.pl:8000/trojka2.ogg;PR3;Polskie Radio Program Trzeci;0;0
 http://mp3.polskieradio.pl:8906/;PR4;Polskie Radio Czwórka;0;1
 https://n21a-eu.rcs.revma.com/an1ugyygzk8uv?rj-ttl=5&rj-tok=AAABmDFzJlQAdgLX8wAJ9ClIZA;Radio 357;Radio 357;0;0
 http://mp3.polskieradio.pl:8120/;SZANTY;PR Szanty;0;7
@@ -18,11 +18,17 @@ http://dab.radio.opole.pl:8035/1;Opole;PR Opole;0;5
 http://stream02.zachod.pl:10113/;Zachod;PR Zachód;0;5;MP3
 http://stream4.nadaje.com:11986/prs.aac;Szczecin;PR Szczecin;0;5;AAC
 http://redir.atmcdn.pl/sc/o2/Eurozet/live/audio.livx;ZET;Radio Zet;0;2
-http://195.150.20.242:8000/rmf_fm;RMF;RMF FM;0;1
 http://wroclaw.radio.pionier.net.pl:8000/pl/tuba10-1.mp3;TOK FM;Radio TOK FM;0;0
+http://195.150.20.242:8000/rmf_fm;RMF;RMF FM;0;1
+https://kexp.streamguys1.com/kexp160.aac;KEXP;KEXP radio;0;0
+http://streaming.starterfm.com/radio/8050/chill192;chill192;chill192;0;0
+http://wsdownload.bbc.co.uk/worldservice/meta/live/shoutcast/mp3/eieuk.pls;BBC World Service;BBC World Service;0;0
+http://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8;BBC 1;BBC - Radio One;0;0
+http://as-hls-ww-live.akamaized.net/pool_92079267/live/ww/bbc_1xtra/bbc_1xtra.isml/bbc_1xtra-audio%3d96000.norewind.m3u8;BBC 1Xtra;BBC - Radio 1Xtra;0;0
+http://as-hls-ww-live.akamaized.net/pool_74208725/live/ww/bbc_radio_two/bbc_radio_two.isml/bbc_radio_two-audio%3d96000.norewind.m3u8;BBC 2;BBC - Radio Two;0;0
+http://as-hls-ww-live.akamaized.net/pool_81827798/live/ww/bbc_6music/bbc_6music.isml/bbc_6music-audio%3d96000.norewind.m3u8;BBC Music;BBC - Radio 6 Music;0;0
+http://as-hls-ww-live.akamaized.net/pool_14000630/live/ww/bbc_radio_jersey/bbc_radio_jersey.isml/bbc_radio_jersey-audio%3d96000.norewind.m3u8;BBC Jersey;BBC - Radio Jersey;0;0
+http://as-hls-ww-live.akamaized.net/pool_69997923/live/ww/bbc_three_counties_radio/bbc_three_counties_radio.isml/bbc_three_counties_radio-audio%3d96000.norewind.m3u8;BBC 3 Counties;BBC - Three Counties Radio;0;0
+https://radio.lapfoxradio.com/radio/8000/stream-flac.flac;Flak24;Flak24;0;0
 #
 # URL;ShortName;LongName;Favorite;Type;Comment
-#
-# RadioJKK32 Station Export
-# Generated: 2025-07-25 18:51:44
-# Total stations: 22

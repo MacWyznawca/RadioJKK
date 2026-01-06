@@ -68,7 +68,7 @@
 #include "nvs.h"
 #include "jkk_settings.h"
 
-#include "metadata_parser/jkk_metadata.h" 
+// #include "metadata_parser/jkk_metadata.h" 
 
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
 #include "lvgl.h"
