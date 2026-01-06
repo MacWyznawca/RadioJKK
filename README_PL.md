@@ -139,26 +139,26 @@ OLED SSD1306 128x64 z magistralą I2C. Dobrze, jeśli ma wbudowane 4 przyciski l
 
 ## 📌 Konfiguracja
 
-### Konfiguracja WiFi
+### Konfiguracja WiFi (domyślnie)
 
-W przypadku skanowania kodu **QR** przejdź do punktu 3.
+Aplikacja provisioning jest **domyślnie wyłączona** w wydaniach binarnych. Użyj wbudowanego SoftAP do konfiguracji (działa w wersjach z i bez ekranu):
 
-1. **Przy pierwszym uruchomieniu** urządzenie utworzy punkt dostępowy "JKK..."
-2. **Połącz się** z tym punktem i użyj aplikacji ESP SoftAP
-3. **Zeskanuj kod QR** wyświetlany na OLED lub wpisz dane ręcznie. PIN: jkk
-4. **Wprowadź dane WiFi** swojej sieci
+1. Po starcie urządzenie uruchamia SoftAP: **SSID:** `RadioJKK-Setup`, **hasło:** `radiopass`
+2. Połącz się z AP i otwórz WWW: **http://192.168.4.1** (lub **http://RadioJKK.local**)
+3. Wpisz SSID/hasło swojej sieci i kliknij **Save & reboot**; urządzenie zrestartuje się i połączy jako STA
+4. Kolejny dostęp: **http://radiojkk32.local** lub adres IP z Twojej sieci
 
-**Uwaga:** po pierwszej konfiguracji, jeśli serwer WWW nie odpowiada, zalecany jest restart urządzenia.
+Fallback: jeśli STA nie złapie sieci (błędne lub domyślne dane z menuconfig), urządzenie automatycznie ponownie uruchomi ten SoftAP, by wpisać Wi‑Fi.
 
-**Alternatywnie za pomocą karty SD**:
+### Konfiguracja WiFi z karty SD (opcjonalnie)
 
-Utwórz plik `settings.txt` z nazwą sieci WiFi i hasłem oddzielonymi średnikiem (jedna linia tekstu):
+Utwórz plik `settings.txt` z SSID i hasłem rozdzielonymi średnikiem (jedna linia):
 
 ```
 mySSID;myPassword
 ```
 
-Jeżeli nie chcesz uruchamiać serwera WWW, dodaj na końcu po średniku: `wwwoff`
+Jeżeli nie chcesz uruchamiać serwera WWW, dodaj na końcu: `wwwoff`
 
 ```
 mySSID;myPassword;wwwoff

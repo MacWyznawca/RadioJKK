@@ -38,6 +38,11 @@ esp_err_t JkkRadioStationSdRead(JkkRadio_t *jkkRadio);
  */
 esp_err_t JkkRadioEqSdRead(JkkRadio_t *jkkRadio);
 
+/**
+ * @brief Write WiFi settings to SD card settings.txt (preserving 3rd field if present)
+ */
+esp_err_t JkkRadioSettingsWriteWifi(const char *ssid, const char *pass, bool runWebServer);
+
 #ifdef __cplusplus
 }
 #endif

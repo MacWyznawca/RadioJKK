@@ -10,6 +10,8 @@
 */
 
 #include <string.h>
+#include <stdio.h>
+#include <errno.h>
 #include "freertos/FreeRTOS.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -111,6 +113,40 @@ esp_err_t JkkRadioSettingsRead(JkkRadio_t *jkkRadio) {
     }
     fclose(fptr);
     ESP_LOGI(TAG, "WiFi settings: SSID: %s, Password: %s", jkkRadio->wifiSSID, jkkRadio->wifiPassword);
+    return ESP_OK;
+}
+
+esp_err_t JkkRadioSettingsWriteWifi(const char *ssid, const char *pass, bool runWebServer)
+{
+    if (!ssid || !pass) return ESP_ERR_INVALID_ARG;
+    char third[32] = {0};
+    FILE *fr = fopen("/sdcard/settings.txt", "r");
+    if (fr) {
+        char lineStr[256] = {0};
+        if (fgets(lineStr, sizeof(lineStr), fr)) {
+            char *a = strtok(lineStr, ";\n");
+            char *b = strtok(NULL, ";\n");
+            char *c = strtok(NULL, ";\n");
+            if (c && strlen(c) < sizeof(third)) {
+                strncpy(third, c, sizeof(third) - 1);
+            }
+        }
+        fclose(fr);
+    }
+    FILE *fw = fopen("/sdcard/settings.txt", "w");
+    if (!fw) {
+        ESP_LOGE(TAG, "Error opening file for write: /sdcard/settings.txt (errno=%d)", errno);
+        return ESP_FAIL;
+    }
+    if (!runWebServer) {
+        fprintf(fw, "%s;%s;%s\n", ssid, pass, JKK_RADIO_WEB_SERVER_OFF);
+    } else if (third[0] != '\0') {
+        fprintf(fw, "%s;%s;%s\n", ssid, pass, third);
+    } else {
+        fprintf(fw, "%s;%s\n", ssid, pass);
+    }
+    fclose(fw);
+    ESP_LOGI(TAG, "Updated /sdcard/settings.txt with new WiFi SSID");
     return ESP_OK;
 }
 

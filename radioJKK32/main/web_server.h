@@ -57,6 +57,13 @@ void JkkRadioWwwSetEqId(uint8_t id);
  */
 void JkkRadioWwwUpdateRecording(int8_t rec);
 
+/**
+ * @brief Retrieve and consume pending Wi-Fi credentials submitted via web form
+ * Copies stored SSID/password into provided buffers if available.
+ * @return true if credentials were available and copied
+ */
+bool JkkWebGetPendingWifi(char *ssid, size_t ssid_len, char *pass, size_t pass_len);
+
 #ifdef __cplusplus
 }
 #endif

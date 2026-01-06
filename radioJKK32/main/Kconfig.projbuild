@@ -28,7 +28,7 @@ menu "RadioJKK Configuration"
 
 	config JKK_PROV_TRANSPORT_SOFTAP
 		bool "Enable ESP SoftAP"
-		default y
+		default n
 		help
 			Select to use ESP SoftAP prov application
 	

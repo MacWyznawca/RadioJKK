@@ -13,7 +13,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "freertos/queue.h"
 #include "esp_log.h"
+#include "esp_event.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
@@ -103,6 +105,119 @@ const int WIFI_CONNECTED_EVENT = BIT0;
 static EventGroupHandle_t wifi_event_group;
 
 static EXT_RAM_BSS_ATTR JkkRadio_t jkkRadio = {0};
+static bool fallback_ap_started = false;
+static int wifi_disconnect_count = 0;
+static QueueHandle_t save_wifi_cmd_queue = NULL;
+static bool using_menuconfig_wifi = false; // true when SSID/pass come from Kconfig defaults
+
+// Custom event base for robust control messages (bypasses ADF queues)
+ESP_EVENT_DEFINE_BASE(JKK_EVT_BASE);
+typedef enum {
+    JKK_EVT_SAVE_WIFI = 1,
+} jkk_evt_id_t;
+
+static void JkkApplyPendingWifiAndRestart(void) {
+    char ssid[32] = {0};
+    char pass[64] = {0};
+    if (JkkWebGetPendingWifi(ssid, sizeof(ssid), pass, sizeof(pass))) {
+        if(strcmp(ssid, jkkRadio.wifiSSID)){
+            JkkNvsBlobSet("wifi_ssid", JKK_RADIO_NVS_NAMESPACE, ssid, strlen(ssid) + 1);
+        }
+        if(strcmp(pass, jkkRadio.wifiPassword)){
+            JkkNvsBlobSet("wifi_password", JKK_RADIO_NVS_NAMESPACE, pass, strlen(pass) + 1);
+        }
+        strncpy(jkkRadio.wifiSSID, ssid, sizeof(jkkRadio.wifiSSID) - 1);
+        strncpy(jkkRadio.wifiPassword, pass, sizeof(jkkRadio.wifiPassword) - 1);
+        ESP_LOGI(TAG, "WiFi saved via event: %s", ssid);
+        JkkRadioSettingsWriteWifi(ssid, pass, jkkRadio.runWebServer);
+        vTaskDelay(pdMS_TO_TICKS(200));
+        esp_restart();
+    } else {
+        ESP_LOGW(TAG, "No pending WiFi creds to save (event)");
+    }
+}
+
+static esp_err_t JkkRadioStartFallbackSoftap(void) {
+    if (fallback_ap_started) {
+        ESP_LOGW(TAG, "Fallback SoftAP already started");
+        return ESP_OK;
+    }
+
+    wifi_config_t ap_config = {0};
+    const char *ssid = "RadioJKK-Setup";
+    const char *pass = "radiopass"; // >=8 chars
+
+    strncpy((char *)ap_config.ap.ssid, ssid, sizeof(ap_config.ap.ssid) - 1);
+    ap_config.ap.ssid_len = strlen(ssid);
+    strncpy((char *)ap_config.ap.password, pass, sizeof(ap_config.ap.password) - 1);
+    ap_config.ap.max_connection = 4;
+    ap_config.ap.channel = 1;
+    ap_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+
+    if (strlen(pass) < 8) {
+        ap_config.ap.authmode = WIFI_AUTH_OPEN;
+        ap_config.ap.password[0] = '\0';
+    }
+
+    // Ensure default AP netif exists once; avoid duplicate key assert
+    esp_netif_t *ap_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+    if (!ap_netif) {
+        ap_netif = esp_netif_create_default_wifi_ap();
+        ESP_LOGI(TAG, "Created default Wi-Fi AP netif");
+    } else {
+        ESP_LOGI(TAG, "Default Wi-Fi AP netif already exists");
+    }
+
+    if (jkkRadio.wifi_handle) {
+        ESP_LOGW(TAG, "Stopping periph_wifi to avoid reconnect spam");
+        esp_periph_stop(jkkRadio.wifi_handle);
+    }
+
+    // Drain pending events to free space if event iface exists
+    if (jkkRadio.evt) {
+        audio_event_iface_msg_t drop = {0};
+        int drained = 0;
+        while (audio_event_iface_listen(jkkRadio.evt, &drop, 0) == ESP_OK && drained < 16) {
+            drained++;
+        }
+        if (drained > 0) {
+            ESP_LOGI(TAG, "Drained %d pending events before starting SoftAP", drained);
+        }
+    }
+
+    esp_err_t err = esp_wifi_stop();
+    if (err != ESP_OK && err != ESP_ERR_WIFI_NOT_INIT && err != ESP_ERR_WIFI_NOT_STARTED) {
+        ESP_LOGE(TAG, "esp_wifi_stop failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    fallback_ap_started = true;
+    wifi_disconnect_count = 0;
+    jkkRadio.runWebServer = true;
+    stop_web_server();
+    start_web_server();
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+    {
+        // Show SSID, password and mDNS hint on LCD
+        char lcdMsg[64];
+        snprintf(lcdMsg, sizeof(lcdMsg), "AP:%s pass:%s RadioJKK.local", ssid, pass);
+        JkkLcdStationTxt(lcdMsg);
+
+        // Show AP IP address
+        esp_netif_ip_info_t ipinfo;
+        if (ap_netif && esp_netif_get_ip_info(ap_netif, &ipinfo) == ESP_OK) {
+            char ipTxt[16];
+            snprintf(ipTxt, sizeof(ipTxt), IPSTR, IP2STR(&ipinfo.ip));
+            JkkLcdIpTxt(ipTxt);
+        }
+    }
+#endif
+    ESP_LOGW(TAG, "Fallback SoftAP started: SSID=%s", ssid);
+    return ESP_OK;
+}
 
 static void initialize_sntp(void){
     ESP_LOGI(TAG, "Initializing SNTP");
@@ -184,15 +299,41 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 esp_wifi_connect();
                 break;
             case WIFI_EVENT_STA_DISCONNECTED:
-                ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
+                if (fallback_ap_started) {
+                    ESP_LOGI(TAG, "Disconnected but fallback AP running; skip STA reconnect");
+                    break;
+                }
+                wifi_disconnect_count++;
+                ESP_LOGI(TAG, "Disconnected (%d). Reconnecting...", wifi_disconnect_count);
+                // If using default Kconfig credentials, fallback immediately on first failure
+                if (using_menuconfig_wifi && wifi_disconnect_count >= 1) {
+                    ESP_LOGW(TAG, "Default credentials detected; starting fallback SoftAP after first failure");
+                    JkkRadioStartFallbackSoftap();
+                    wifi_disconnect_count = 0;
+                    break;
+                }
+                if (wifi_disconnect_count >= 10) {
+                    ESP_LOGW(TAG, "Too many disconnects, starting fallback SoftAP");
+                    JkkRadioStartFallbackSoftap();
+                    wifi_disconnect_count = 0;
+                    break;
+                }
                 esp_wifi_connect();
                 break;
 #ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
             case WIFI_EVENT_AP_STACONNECTED:
                 ESP_LOGI(TAG, "SoftAP transport: Connected!");
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-                JkkLcdStationTxt("If you don't scan QR type: "PROV_POP_TXT);
-                JkkLcdQRcode(NULL);
+#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD)
+                if (fallback_ap_started) {
+                    // Fallback AP mode: guide user to web setup
+                    JkkLcdStationTxt("Open 192.168.4.1 or RadioJKK.local and set Wi-Fi");
+                    // Keep IP visible as 192.168.4.1 for AP
+                    JkkLcdIpTxt("192.168.4.1");
+                } else {
+                    // Provisioning SoftAP mode: show PoP hint/QR
+                    JkkLcdStationTxt("If you don't scan QR type: "PROV_POP_TXT);
+                    JkkLcdQRcode(NULL);
+                }
 #endif
                 break;
             case WIFI_EVENT_AP_STADISCONNECTED:
@@ -209,8 +350,11 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         char ipTxt[16];
         snprintf(ipTxt, sizeof(ipTxt), IPSTR, IP2STR(&event->ip_info.ip));
         JkkLcdIpTxt(ipTxt);
+        // Brief hint to access via mDNS
+        JkkLcdStationTxt("Web: RadioJKK.local");
 #endif
         /* Signal main application to continue execution */
+        wifi_disconnect_count = 0;
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
         //JkkRadioSaveTimerStart(jkkRadio.whatToDo | JKK_RADIO_TO_SAVE_PROVISIONED); 
     } else if (event_base == PROTOCOMM_SECURITY_SESSION_EVENT) {
@@ -223,6 +367,15 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 break;
             case PROTOCOMM_SECURITY_SESSION_CREDENTIALS_MISMATCH:
                 ESP_LOGE(TAG, "Received incorrect username and/or PoP for establishing secure session!");
+                break;
+            default:
+                break;
+        }
+    } else if (event_base == JKK_EVT_BASE) {
+        switch (event_id) {
+            case JKK_EVT_SAVE_WIFI:
+                ESP_LOGI(TAG, "JKK_EVT_SAVE_WIFI received");
+                JkkApplyPendingWifiAndRestart();
                 break;
             default:
                 break;
@@ -582,7 +735,59 @@ esp_err_t JkkRadioSendMessageToMain(int mess, int command){
     msg.data = (void*)(intptr_t)mess;
     msg.data_len = sizeof(int);
 
-    esp_err_t ret = audio_event_iface_sendout(esp_periph_set_get_event_iface(jkkRadio.set), &msg); 
+    // Fast path for SAVE_WIFI: use dedicated queue to avoid clogged audio iface
+    if (command == JKK_RADIO_CMD_SAVE_WIFI && save_wifi_cmd_queue) {
+        int v = mess;
+        if (xQueueSend(save_wifi_cmd_queue, &v, 0) != pdPASS) {
+            int dropped;
+            xQueueReceive(save_wifi_cmd_queue, &dropped, 0); // drop oldest
+            vTaskDelay(pdMS_TO_TICKS(5));
+            if (xQueueSend(save_wifi_cmd_queue, &v, 0) != pdPASS) {
+                ESP_LOGW(TAG, "SAVE_WIFI queue full, dropping cmd");
+                return ESP_FAIL;
+            }
+        }
+        ESP_LOGW(TAG, "SAVE_WIFI enqueued via dedicated queue");
+        return ESP_OK;
+    }
+
+    // Prefer sending via periph event iface (source) so it reaches the listener (jkkRadio.evt)
+    audio_event_iface_handle_t target_iface = NULL;
+    if (jkkRadio.set) {
+        target_iface = esp_periph_set_get_event_iface(jkkRadio.set);
+    } else if (jkkRadio.evt) {
+        // Last resort: send to listener (may be ignored if no upstream), better than dropping
+        target_iface = jkkRadio.evt;
+    }
+
+    if (!target_iface) {
+        ESP_LOGW(TAG, "No event iface available, dropping cmd=%d", command);
+        return ESP_FAIL;
+    }
+
+    esp_err_t ret = audio_event_iface_sendout(target_iface, &msg);
+    if (ret != ESP_OK) {
+        // Likely listener queue (jkkRadio.evt) is full — drain it if available
+        if (jkkRadio.evt) {
+            audio_event_iface_msg_t drop = {0};
+            int drained = 0;
+            while (audio_event_iface_listen(jkkRadio.evt, &drop, 0) == ESP_OK && drained < 16) {
+                drained++;
+            }
+            if (drained > 0) {
+                ESP_LOGI(TAG, "Drained %d events from main iface before retry", drained);
+            }
+        } else {
+            // As a fallback, drain from target itself (may be periph iface)
+            audio_event_iface_msg_t drop = {0};
+            int drained = 0;
+            while (audio_event_iface_listen(target_iface, &drop, 0) == ESP_OK && drained < 8) {
+                drained++;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+        ret = audio_event_iface_sendout(target_iface, &msg);
+    }
     ESP_LOGW(TAG, "JkkRadioSendMessageToMain ret: %d, mess: %d", ret, (int)(intptr_t)msg.data);
     return ret;
 }
@@ -1080,6 +1285,9 @@ static void MainAppTask(void *arg){
     wifi_event_group = xEventGroupCreate();
 
     jkkRadio.waitTimer_h = xTimerCreate("saveTimer", (JKK_RADIO_WAIT_TO_SAVE_TIME / portTICK_PERIOD_MS), pdFALSE, NULL, SaveTimerHandle);
+    if (!save_wifi_cmd_queue) {
+        save_wifi_cmd_queue = xQueueCreate(4, sizeof(int));
+    }
 
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     ESP_LOGI(TAG, "Initialize I2C LCD display");
@@ -1106,7 +1314,9 @@ static void MainAppTask(void *arg){
     JkkRadioDataToSave_t toRead = {0};
 
     bool playAnything = false;
-    if(JkkNvs64_get("stateStEq", JKK_RADIO_NVS_NAMESPACE, &toRead.all64) == ESP_OK){
+    uint64_t _saved_state_tmp = 0; // avoid taking address of packed member
+    if(JkkNvs64_get("stateStEq", JKK_RADIO_NVS_NAMESPACE, &_saved_state_tmp) == ESP_OK){
+        toRead.all64 = _saved_state_tmp;
         jkkRadio.current_eq = toRead.current_eq < jkkRadio.eq_count ? toRead.current_eq : 0;
         jkkRadio.prev_station = jkkRadio.current_station = toRead.current_station < jkkRadio.station_count ? toRead.current_station : 0;
         jkkRadio.player_volume = toRead.current_volume <= 100 ? toRead.current_volume : 10; // Volume should be in range 0-100
@@ -1146,32 +1356,40 @@ static void MainAppTask(void *arg){
     else {
         wifiFromFlash = false;
     }
+    // Track whether we are using menuconfig defaults (no NVS/SD creds)
+    using_menuconfig_wifi = !wifiFromFlash;
     jkkRadio.wifi_handle = periph_wifi_init(&wifi_cfg);
     esp_periph_start(jkkRadio.set, jkkRadio.wifi_handle);
 
     vTaskDelay(pdMS_TO_TICKS(1000));
 
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(PROTOCOMM_SECURITY_SESSION_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(JKK_EVT_BASE, JKK_EVT_SAVE_WIFI, &event_handler, NULL));
 #ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
-    esp_netif_create_default_wifi_ap();
+    // Create default AP netif only if not present (provisioning softAP)
+    if (!esp_netif_get_handle_from_ifkey("WIFI_AP_DEF")) {
+        esp_netif_create_default_wifi_ap();
+    }
 #endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
-    wifi_prov_mgr_config_t config = {
-#ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
+    #ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
+        wifi_prov_mgr_config_t config = {
+    #ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
         .scheme = wifi_prov_scheme_softap,
-#endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
-#ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
+    #endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
+    #ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
         .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE
-#endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
-    };
+    #endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
+        };
 
-    if(!wifiFromFlash) wifi_prov_mgr_reset_provisioning();
+        if(!wifiFromFlash) wifi_prov_mgr_reset_provisioning();
 
-    ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
-    ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&jkkRadio.isProvisioned));
+        ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
+        ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&jkkRadio.isProvisioned));
 
-    if (!jkkRadio.isProvisioned) {
+        if (!jkkRadio.isProvisioned) {
         ESP_LOGI(TAG, "Starting provisioning");
         char service_name[16];
         get_device_service_name(service_name, sizeof(service_name));
@@ -1204,6 +1422,7 @@ static void MainAppTask(void *arg){
         ESP_LOGI(TAG, "Already provisioned, starting Wi-Fi STA");
         wifi_prov_mgr_deinit();
     }
+#endif /* CONFIG_JKK_PROV_TRANSPORT_SOFTAP */
 
     esp_err_t wifiRet = periph_wifi_wait_for_connected(jkkRadio.wifi_handle, pdMS_TO_TICKS(10 * 60 * 1000));
 
@@ -1214,14 +1433,15 @@ static void MainAppTask(void *arg){
         JkkRadioWwwSetStationId(jkkRadio.current_station);
     }
     else {
-#if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
-        JkkLcdStationTxt(" WiFi error");
-        wifi_prov_mgr_reset_provisioning(); // Temporaty solution
-#else
+    #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
+        JkkLcdStationTxt(" WiFi cfg AP");
+    #endif
+        ESP_LOGW(TAG, "WiFi connect failed, starting fallback SoftAP");
+    #ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
         wifi_prov_mgr_reset_provisioning();
-#endif
-        vTaskDelay(pdMS_TO_TICKS(10000));
-        esp_restart();
+        wifi_prov_mgr_deinit();
+    #endif
+        JkkRadioStartFallbackSoftap();
     }  
 
     ESP_LOGI(TAG, "Initialize keys on board");
@@ -1282,6 +1502,31 @@ static void MainAppTask(void *arg){
     }
     
     while (1) {
+        // Handle SAVE_WIFI commands from dedicated queue first
+        if (save_wifi_cmd_queue) {
+            int qcmd;
+            while (xQueueReceive(save_wifi_cmd_queue, &qcmd, 0) == pdTRUE) {
+                if (qcmd == JKK_RADIO_CMD_SAVE_WIFI) {
+                    char ssid[32] = {0};
+                    char pass[64] = {0};
+                    if (JkkWebGetPendingWifi(ssid, sizeof(ssid), pass, sizeof(pass))) {
+                        if(strcmp(ssid, jkkRadio.wifiSSID)){
+                            JkkNvsBlobSet("wifi_ssid", JKK_RADIO_NVS_NAMESPACE, ssid, strlen(ssid) + 1);
+                        }
+                        if(strcmp(pass, jkkRadio.wifiPassword)){
+                            JkkNvsBlobSet("wifi_password", JKK_RADIO_NVS_NAMESPACE, pass, strlen(pass) + 1);
+                        }
+                        strncpy(jkkRadio.wifiSSID, ssid, sizeof(jkkRadio.wifiSSID) - 1);
+                        strncpy(jkkRadio.wifiPassword, pass, sizeof(jkkRadio.wifiPassword) - 1);
+                        ESP_LOGI(TAG, "WiFi saved via web (queue): %s", ssid);
+                        vTaskDelay(pdMS_TO_TICKS(200));
+                        esp_restart();
+                    } else {
+                        ESP_LOGW(TAG, "No pending WiFi creds to save (queue)");
+                    }
+                }
+            }
+        }
         audio_event_iface_msg_t msg = {0};
         esp_err_t ret = audio_event_iface_listen(jkkRadio.evt, &msg, pdMS_TO_TICKS(3000)); // portMAX_DELAY
         if (ret != ESP_OK) {
@@ -1365,6 +1610,25 @@ static void MainAppTask(void *arg){
             else if(msg.cmd == JKK_RADIO_CMD_STOP){
                 ESP_LOGW(TAG, "JKK_RADIO_CMD_STOP"); 
                 JkkRadioStop();
+            }
+            else if(msg.cmd == JKK_RADIO_CMD_SAVE_WIFI){
+                char ssid[32] = {0};
+                char pass[64] = {0};
+                if (JkkWebGetPendingWifi(ssid, sizeof(ssid), pass, sizeof(pass))) {
+                    if(strcmp(ssid, jkkRadio.wifiSSID)){
+                        JkkNvsBlobSet("wifi_ssid", JKK_RADIO_NVS_NAMESPACE, ssid, strlen(ssid) + 1);
+                    }
+                    if(strcmp(pass, jkkRadio.wifiPassword)){
+                        JkkNvsBlobSet("wifi_password", JKK_RADIO_NVS_NAMESPACE, pass, strlen(pass) + 1);
+                    }
+                    strncpy(jkkRadio.wifiSSID, ssid, sizeof(jkkRadio.wifiSSID) - 1);
+                    strncpy(jkkRadio.wifiPassword, pass, sizeof(jkkRadio.wifiPassword) - 1);
+                    ESP_LOGI(TAG, "WiFi saved via web: %s", ssid);
+                    vTaskDelay(pdMS_TO_TICKS(200));
+                    esp_restart();
+                } else {
+                    ESP_LOGW(TAG, "No pending WiFi creds to save");
+                }
             }
         } 
       //  int data = msg.data != NULL ? (int)(intptr_t)msg.data : -1;
@@ -1451,7 +1715,7 @@ static void MainAppTask(void *arg){
             }
             if ((int)msg.data == get_input_set_id()) {
                 if(msg.cmd == PERIPH_BUTTON_RELEASE){
-                    jkkRollerMode_t rollerMode = JkkLcdRollerMode();
+                    // jkkRollerMode_t rollerMode = JkkLcdRollerMode(); // unused
                     if(msg.cmd == PERIPH_BUTTON_RELEASE){
                         char *lcdRollerOptions = heap_caps_calloc(jkkRadio.eq_count, 10, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
                         for (int i = 0; i < jkkRadio.eq_count; i++) {

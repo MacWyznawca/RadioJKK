@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-01-06
+
+### Changed
+- Default release binaries ship with ESP SoftAP provisioning **disabled**; Wi‑Fi setup now uses the built-in SoftAP (`RadioJKK-Setup` / `radiopass`, web at `http://192.168.4.1` or `http://RadioJKK.local`).
+- Faster fallback: when only menuconfig default Wi‑Fi is present, the device starts the setup SoftAP after the first failed connect.
+
+### Notes
+- Binaries are provided in variants **with LCD** and **without LCD**; SoftAP setup works in both.
+
 ## [1.0.7] - 2025-12-02
 
 ### Fixed

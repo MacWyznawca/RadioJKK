@@ -305,10 +305,17 @@
                 background-color: transparent !important;
             }
         }
+        /* Smaller Wi‑Fi panel at page bottom */
+        .wifi-panel { font-size: 0.9rem; }
+        .wifi-panel h2 { font-size: 1.1rem; text-align: left; }
+        .wifi-panel .form-group label { font-size: 0.9rem; }
+        .wifi-panel .form-group input { font-size: 0.9rem; padding: 0.4em; }
+        .wifi-panel .form-buttons button { font-size: 0.9rem; padding: 0.5em; }
     </style>
 </head>
 <body>
     <h1>Radio JKK</h1>
+
 
     <div>
         <input type="range" min="0" max="100" id="volume" />
@@ -394,6 +401,32 @@
     let isPlaying = false;
     let isRecording = 0;
     let lcdState = -1;
+
+        function saveWifi() {
+            const ssid = document.getElementById('wifi-ssid').value.trim();
+            const pass = document.getElementById('wifi-pass').value.trim();
+            const msg = document.getElementById('wifi-msg');
+            if (!ssid) {
+                msg.textContent = 'SSID is required';
+                msg.style.color = '#c00';
+                return;
+            }
+            msg.textContent = 'Saving...';
+            msg.style.color = '#333';
+            const body = `ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(pass)}`;
+            fetch('/wifi_save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body
+            }).then(r => r.text())
+            .then(t => {
+                msg.textContent = t;
+                msg.style.color = '#070';
+            }).catch(() => {
+                msg.textContent = 'Error saving Wi-Fi';
+                msg.style.color = '#c00';
+            });
+        }
 
         function refreshCurrentStationAndVolume() {
             fetch("/status")
@@ -1015,5 +1048,21 @@
         refreshEqualizerList();
         refreshCurrentStationAndVolume();
     </script>
+    <!-- Wi‑Fi setup moved to bottom and made smaller -->
+    <div class="form-container wifi-panel" style="margin: 1.5rem auto; max-width: 600px;">
+        <h2>Wi‑Fi setup</h2>
+        <div class="form-group">
+            <label for="wifi-ssid">SSID</label>
+            <input id="wifi-ssid" type="text" maxlength="31" placeholder="Your Wi‑Fi name">
+        </div>
+        <div class="form-group">
+            <label for="wifi-pass">Password</label>
+            <input id="wifi-pass" type="password" maxlength="63" placeholder="Your Wi‑Fi password">
+        </div>
+        <div class="form-buttons">
+            <button onclick="saveWifi()">💾 Save & reboot</button>
+        </div>
+        <p id="wifi-msg" style="text-align: center; font-weight: bold; color: #333; margin: 0;"></p>
+    </div>
 </body>
 </html>

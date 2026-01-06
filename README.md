@@ -135,18 +135,18 @@ OLED SSD1306 128x64 with I2C interface. Ideally with 4 built-in buttons, or conn
 
 ## 📌 Configuration
 
-### WiFi Configuration
+### WiFi Configuration (default flow)
 
-If scanning the **QR** code, go to step 3.
+Provisioning app is **disabled by default** in release binaries. Use the built‑in SoftAP to set Wi‑Fi (works for both LCD and no‑LCD builds):
 
-1. **On first boot**, the device creates an access point named "JKK..."
-2. **Connect** to it and use the ESP SoftAP app
-3. **Scan the QR code** displayed on OLED or enter manually. PIN: jkk
-4. **Enter WiFi credentials**
+1. On boot, the device starts SoftAP: **SSID:** `RadioJKK-Setup`, **password:** `radiopass`
+2. Connect to the AP, open the web UI at **http://192.168.4.1** (or **http://RadioJKK.local**)
+3. Enter your Wi‑Fi SSID/password, click **Save & reboot**; device restarts and connects as STA
+4. Next access: use **http://radiojkk32.local** or the obtained STA IP
 
-**Note:** after first setup, if the web server doesn't respond, a device restart is recommended.
+Fallback: if STA fails (wrong creds or default menuconfig creds), the device auto-starts the same SoftAP to let you re-enter Wi‑Fi.
 
-**Alternatively via SD card:**
+### WiFi via SD card (optional)
 
 Create `settings.txt` file with SSID and password separated by a semicolon (single line):
 

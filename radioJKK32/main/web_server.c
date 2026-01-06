@@ -1,11 +1,22 @@
 #include <esp_http_server.h>
 #include <esp_log.h>
+#include <esp_system.h>
 #include <string.h>
 #include <stdlib.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "mdns.h"
 #include "lwip/apps/netbiosns.h"
 #include "web_server.h"
 #include "jkk_radio.h"
+#include "jkk_nvs.h"
+#include "esp_event.h"
+
+ESP_EVENT_DECLARE_BASE(JKK_EVT_BASE);
+// Keep event IDs consistent with radio_jkk.c
+typedef enum {
+    JKK_EVT_SAVE_WIFI = 1,
+} jkk_evt_id_t;
 
 #ifdef CONFIG_JKK_RADIO_USING_I2C_LCD
 #include "display/jkk_lcd_port.h"
@@ -22,6 +33,9 @@ static uint8_t volume = 10;
 static int8_t station_id = -1;
 static uint8_t eq_id = 0;
 static int8_t is_rec = 0;
+static char wifi_ssid[32] = "";
+static char wifi_pass[64] = "";
+static bool wifi_pending = false;
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
@@ -48,6 +62,40 @@ void JkkRadioWwwUpdateVolume(uint8_t vol) {
 
 void JkkRadioWwwUpdateRecording(int8_t rec) {
     is_rec = rec;
+}
+
+bool JkkWebGetPendingWifi(char *ssid, size_t ssid_len, char *pass, size_t pass_len) {
+    if (!wifi_pending || !ssid || !pass) {
+        return false;
+    }
+    strlcpy(ssid, wifi_ssid, ssid_len);
+    strlcpy(pass, wifi_pass, pass_len);
+    wifi_pending = false;
+    wifi_ssid[0] = '\0';
+    wifi_pass[0] = '\0';
+    return true;
+}
+
+static void url_decode(char *dst, const char *src, size_t len) {
+    size_t o = 0;
+    for (size_t i = 0; i < len && src[i]; ++i) {
+        if (src[i] == '%' && i + 2 < len) {
+            int hi = src[i + 1];
+            int lo = src[i + 2];
+            hi = (hi >= '0' && hi <= '9') ? hi - '0' : (hi >= 'A' && hi <= 'F') ? 10 + hi - 'A' : (hi >= 'a' && hi <= 'f') ? 10 + hi - 'a' : -1;
+            lo = (lo >= '0' && lo <= '9') ? lo - '0' : (lo >= 'A' && lo <= 'F') ? 10 + lo - 'A' : (lo >= 'a' && lo <= 'f') ? 10 + lo - 'a' : -1;
+            if (hi >= 0 && lo >= 0) {
+                dst[o++] = (char)((hi << 4) | lo);
+                i += 2;
+                continue;
+            }
+        } else if (src[i] == '+') {
+            dst[o++] = ' ';
+            continue;
+        }
+        dst[o++] = src[i];
+    }
+    dst[o] = '\0';
 }
 
 esp_err_t root_get_handler(httpd_req_t *req) {
@@ -250,6 +298,57 @@ esp_err_t toggle_record_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t wifi_save_post_handler(httpd_req_t *req) {
+    int total_len = req->content_len;
+    if (total_len <= 0 || total_len > 160) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid length");
+        return ESP_FAIL;
+    }
+
+    char buf[192] = {0};
+    if (httpd_req_recv(req, buf, MIN(sizeof(buf) - 1, total_len)) <= 0) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Recv error");
+        return ESP_FAIL;
+    }
+
+    char ssid_raw[64] = {0};
+    char pass_raw[96] = {0};
+
+    char *ssid_ptr = strstr(buf, "ssid=");
+    char *pass_ptr = strstr(buf, "pass=");
+    if (!ssid_ptr || !pass_ptr) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing fields");
+        return ESP_FAIL;
+    }
+
+    ssid_ptr += 5;
+    char *ssid_end = strchr(ssid_ptr, '&');
+    size_t ssid_len = ssid_end ? (size_t)(ssid_end - ssid_ptr) : strlen(ssid_ptr);
+    size_t pass_len = strlen(pass_ptr + 5);
+    url_decode(ssid_raw, ssid_ptr, MIN(ssid_len, sizeof(ssid_raw) - 1));
+    url_decode(pass_raw, pass_ptr + 5, MIN(pass_len, sizeof(pass_raw) - 1));
+
+    if (strlen(ssid_raw) == 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Empty SSID");
+        return ESP_FAIL;
+    }
+
+    strncpy(wifi_ssid, ssid_raw, sizeof(wifi_ssid) - 1);
+    strncpy(wifi_pass, pass_raw, sizeof(wifi_pass) - 1);
+    wifi_pending = true;
+
+    // Prefer robust esp_event path (internal RAM task) to avoid PSRAM task NVS writes and ADF queue congestion
+    esp_err_t post_ret = esp_event_post(JKK_EVT_BASE, JKK_EVT_SAVE_WIFI, NULL, 0, 0);
+    if (post_ret != ESP_OK) {
+        // Fallback to legacy message path
+        JkkRadioSendMessageToMain(JKK_RADIO_CMD_SAVE_WIFI, JKK_RADIO_CMD_SAVE_WIFI);
+    }
+
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_sendstr(req, "Saving Wi-Fi... device will reboot");
+    return ESP_OK;
+}
+
 httpd_uri_t uri_root = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler };
 httpd_uri_t uri_station_name = { .uri = "/status", .method = HTTP_GET, .handler = info_get_handler };
 httpd_uri_t uri_volume = { .uri = "/volume", .method = HTTP_POST, .handler = volume_post_handler };
@@ -264,6 +363,7 @@ httpd_uri_t uri_stations_backup = { .uri = "/backup_stations", .method = HTTP_GE
 httpd_uri_t uri_stop = { .uri = "/stop", .method = HTTP_POST, .handler = stop_post_handler };
 httpd_uri_t uri_toggle = { .uri = "/toggle", .method = HTTP_POST, .handler = toggle_play_pause_post_handler };
 httpd_uri_t uri_rec_toggle = { .uri = "/rec_toggle", .method = HTTP_POST, .handler = toggle_record_post_handler };
+httpd_uri_t uri_wifi_save = { .uri = "/wifi_save", .method = HTTP_POST, .handler = wifi_save_post_handler };
 
 httpd_uri_t uri_lcd_toggle = { .uri = "/lcd_toggle", .method = HTTP_POST, .handler = lcd_toggle_post_handler };
 
@@ -315,6 +415,7 @@ void start_web_server(void) {
         httpd_register_uri_handler(server, &uri_stop);
         httpd_register_uri_handler(server, &uri_toggle);
         httpd_register_uri_handler(server, &uri_rec_toggle);
+        httpd_register_uri_handler(server, &uri_wifi_save);
         httpd_register_uri_handler(server, &uri_lcd_toggle);
         ESP_LOGI(TAG, "Serwer WWW uruchomiony");
 
