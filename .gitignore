@@ -22,6 +22,8 @@ radioJKK32/main/metadata_parser*
 
 .code-workspace
 *.code-workspace
+.vscode/
+.vscode/*
 
 radioJKK32/dependencies.lock
 
