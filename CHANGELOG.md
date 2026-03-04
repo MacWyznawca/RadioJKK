@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-03-05
+
+### Fixed
+- Problem with storing volume levels greater than 63% solved.
+- Problem with setting volume from WWW solved.
+
 ## [1.1.0] - 2026-01-06
 
 ### Changed

@@ -929,7 +929,7 @@
         let previousVolume = 0
         const slider = document.getElementById("volume");
         slider.addEventListener("input", function() {
-            let vol = parseInt(this.value);
+            let vol = parseInt(this.value, 10);
             fetch("/volume", {
                 method: "POST",
                 body: vol

@@ -154,9 +154,10 @@ esp_err_t eq_list_get_handler(httpd_req_t *req) {
 
 esp_err_t volume_post_handler(httpd_req_t *req) {
     int total_len = req->content_len;
-    char buf[10];
+    char buf[10] = {0};
     if (httpd_req_recv(req, buf, MIN(total_len, sizeof(buf))) <= 0) return ESP_FAIL;
     uint8_t new_volume = atoi(buf);
+    ESP_LOGI(TAG, "volume_post_handler: setting volume to %d, string received: %s", new_volume, buf);
     JkkRadioSetVolume(new_volume);
     volume = new_volume;
     httpd_resp_sendstr(req, "OK");

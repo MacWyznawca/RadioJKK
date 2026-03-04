@@ -92,7 +92,7 @@ typedef union {
     struct {
         uint64_t current_station:10, 
                  current_eq:6,
-                 current_volume:6,
+                 current_volume:7,
                  is_playing:1;
     };
     uint64_t all64;
