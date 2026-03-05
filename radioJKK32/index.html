@@ -1064,5 +1064,87 @@
         </div>
         <p id="wifi-msg" style="text-align: center; font-weight: bold; color: #333; margin: 0;"></p>
     </div>
+
+    <!-- MQTT broker setup -->
+    <div class="form-container wifi-panel" style="margin: 1.5rem auto; max-width: 600px;">
+        <h2>MQTT Broker</h2>
+        <div class="form-group" style="display:flex; align-items:center; gap:0.5em;">
+            <input id="mqtt-enabled" type="checkbox" checked style="width:auto; margin:0;">
+            <label for="mqtt-enabled" style="margin:0; cursor:pointer;">MQTT enabled</label>
+        </div>
+        <div class="form-group">
+            <label for="mqtt-broker">Broker address (host or host:port)</label>
+            <input id="mqtt-broker" type="text" maxlength="79" placeholder="empty = mDNS auto-discovery">
+        </div>
+        <div class="form-buttons">
+            <button onclick="saveMqtt()">💾 Save</button>
+            <button onclick="loadMqtt()" style="background:#555;">🔄 Refresh</button>
+        </div>
+        <p id="mqtt-msg" style="text-align: center; font-weight: bold; color: #333; margin: 0;"></p>
+    </div>
+
+    <script>
+    function saveMqtt() {
+        const broker = document.getElementById('mqtt-broker').value.trim();
+        const enabled = document.getElementById('mqtt-enabled').checked ? 1 : 0;
+        const msg = document.getElementById('mqtt-msg');
+        msg.textContent = 'Saving...';
+        msg.style.color = '#333';
+        const body = `broker=${encodeURIComponent(broker)}&enabled=${enabled}`;
+        fetch('/mqtt_save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+        }).then(r => r.text())
+        .then(t => { msg.textContent = t + (enabled ? '' : ' (MQTT disabled)'); msg.style.color = '#070'; })
+        .catch(() => { msg.textContent = 'Error saving MQTT'; msg.style.color = '#c00'; });
+    }
+
+    function loadMqtt() {
+        fetch('/mqtt_status')
+        .then(r => r.text())
+        .then(t => {
+            // Format: broker_addr;connected;enabled
+            const parts = t.split(';');
+            document.getElementById('mqtt-broker').value = parts[0] || '';
+            const connected = parts[1] === '1';
+            const enabled = parts[2] !== '0';
+            document.getElementById('mqtt-enabled').checked = enabled;
+            const msg = document.getElementById('mqtt-msg');
+            if (!enabled) {
+                msg.textContent = 'MQTT disabled';
+                msg.style.color = '#888';
+            } else if (connected) {
+                msg.textContent = '✅ Connected';
+                msg.style.color = '#070';
+            } else if (parts[0]) {
+                msg.textContent = 'Configured (not connected)';
+                msg.style.color = '#a80';
+            } else {
+                msg.textContent = 'mDNS auto-discovery active';
+                msg.style.color = '#555';
+            }
+        })
+        .catch(() => {});
+    }
+    loadMqtt();
+    </script>
+
+    <!-- RAM info -->
+    <div style="text-align:center; color:#888; font-size:0.85em; margin:1.5rem 0 0.5rem;">
+        <span id="ram-info">Loading RAM info...</span>
+        <button onclick="loadRam()" style="background:none; border:none; cursor:pointer; font-size:1em; vertical-align:middle; padding:0 0 0 0.3em;" title="Refresh">🔄</button>
+    </div>
+    <script>
+    function loadRam(){
+        document.getElementById('ram-info').textContent='Loading...';
+        fetch('/raminfo').then(r=>r.text()).then(t=>{
+            const [dma,int_,spi]=t.split(';');
+            document.getElementById('ram-info').textContent=
+                'Free RAM \u2014 DMA: '+dma+' KB \u00b7 Internal: '+int_+' KB \u00b7 SPIRAM: '+spi+' KB';
+        }).catch(()=>{ document.getElementById('ram-info').textContent='Error'; });
+    }
+    loadRam();
+    </script>
 </body>
 </html>

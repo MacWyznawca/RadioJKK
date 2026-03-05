@@ -272,6 +272,58 @@ bool JkkRadioIsPlaying(void);
  */
 void JkkRadioLcdOn(void);
 
+/* ── Getters for MQTT state publishing ──────────────────── */
+
+/**
+ * @brief Get current volume level
+ * @return Volume 0-100
+ */
+int JkkRadioGetVolume(void);
+
+/**
+ * @brief Get current station index
+ * @return Station index (0-based)
+ */
+int JkkRadioGetStation(void);
+
+/**
+ * @brief Get total number of loaded stations
+ * @return Station count
+ */
+int JkkRadioGetStationCount(void);
+
+/**
+ * @brief Get station short name by index
+ * @param idx Station index
+ * @return Station name string (pointer to internal buffer, do not free)
+ */
+const char *JkkRadioGetStationName(int idx);
+
+/**
+ * @brief Get current equalizer preset index
+ * @return EQ index (0-based)
+ */
+int JkkRadioGetEq(void);
+
+/**
+ * @brief Get total number of EQ presets
+ * @return EQ preset count
+ */
+int JkkRadioGetEqCount(void);
+
+/**
+ * @brief Get equalizer preset name by index
+ * @param idx EQ preset index
+ * @return EQ name string (pointer to internal buffer, do not free)
+ */
+const char *JkkRadioGetEqName(int idx);
+
+/**
+ * @brief Check if currently recording to SD card
+ * @return true if recording
+ */
+bool JkkRadioIsRecording(void);
+
 #ifdef __cplusplus
 }
 #endif

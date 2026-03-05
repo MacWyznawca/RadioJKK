@@ -3,6 +3,7 @@
 #include <esp_system.h>
 #include <string.h>
 #include <stdlib.h>
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "mdns.h"
@@ -10,12 +11,14 @@
 #include "web_server.h"
 #include "jkk_radio.h"
 #include "jkk_nvs.h"
+#include "jkk_mqtt.h"
 #include "esp_event.h"
 
 ESP_EVENT_DECLARE_BASE(JKK_EVT_BASE);
 // Keep event IDs consistent with radio_jkk.c
 typedef enum {
     JKK_EVT_SAVE_WIFI = 1,
+    JKK_EVT_MQTT_SAVE = 2,
 } jkk_evt_id_t;
 
 #ifdef CONFIG_JKK_RADIO_USING_I2C_LCD
@@ -131,8 +134,10 @@ esp_err_t lcd_toggle_post_handler(httpd_req_t *req) {
         JkkRadioLcdOn();
         new_state = JkkLcdPortGetLcdState();
     }
-    else
+    else {
         new_state = JkkLcdPortOnOffLcd(false);
+        JkkMqttPublishState();
+    }
 #endif
     char resp[8];
     snprintf(resp, sizeof(resp), "%d", new_state ? 1 : 0);
@@ -368,6 +373,86 @@ httpd_uri_t uri_wifi_save = { .uri = "/wifi_save", .method = HTTP_POST, .handler
 
 httpd_uri_t uri_lcd_toggle = { .uri = "/lcd_toggle", .method = HTTP_POST, .handler = lcd_toggle_post_handler };
 
+/* ── MQTT broker config endpoints ──────────────────────── */
+
+static esp_err_t mqtt_save_post_handler(httpd_req_t *req) {
+    int total_len = req->content_len;
+    if (total_len <= 0 || total_len > 128) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid length");
+        return ESP_FAIL;
+    }
+    char buf[136] = {0};
+    if (httpd_req_recv(req, buf, MIN(sizeof(buf) - 1, total_len)) <= 0) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Recv error");
+        return ESP_FAIL;
+    }
+    /* Expect: broker=<address>&enabled=<0|1> */
+    char *broker_ptr = strstr(buf, "broker=");
+    if (!broker_ptr) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing broker field");
+        return ESP_FAIL;
+    }
+    /* Extract broker address (up to next '&' or end) */
+    char addr_raw[80] = {0};
+    char *amp = strchr(broker_ptr + 7, '&');
+    size_t addr_enc_len = amp ? (size_t)(amp - (broker_ptr + 7)) : strlen(broker_ptr + 7);
+    url_decode(addr_raw, broker_ptr + 7, addr_enc_len);
+    /* Trim */
+    char *p = addr_raw; while(*p == ' ') p++;
+    char *end = p + strlen(p) - 1; while(end > p && *end == ' ') *end-- = '\0';
+    
+    /* Parse enabled flag */
+    char enabled_ch = '1';  /* default enabled */
+    char *en_ptr = strstr(buf, "enabled=");
+    if (en_ptr) {
+        enabled_ch = (atoi(en_ptr + 8) != 0) ? '1' : '0';
+    }
+
+    /* Defer NVS write to internal RAM task (httpd runs on PSRAM stack → flash write crashes) */
+    char evt_data[96];
+    snprintf(evt_data, sizeof(evt_data), "%c|%s", enabled_ch, p);
+    esp_err_t post_ret = esp_event_post(JKK_EVT_BASE, JKK_EVT_MQTT_SAVE,
+                                         evt_data, strlen(evt_data) + 1, pdMS_TO_TICKS(100));
+    if (post_ret == ESP_OK) {
+        httpd_resp_set_type(req, "text/plain");
+        httpd_resp_sendstr(req, strlen(p) ? "MQTT broker saved" : "MQTT broker cleared");
+    } else {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Event post error");
+    }
+    return ESP_OK;
+}
+
+static esp_err_t mqtt_get_handler(httpd_req_t *req) {
+    char addr[80] = {0};
+    if (JkkMqttGetBrokerAddress(addr, sizeof(addr)) != ESP_OK) {
+        addr[0] = '\0';
+    }
+    /* Format: broker_addr;connected;enabled */
+    char resp[100];
+    snprintf(resp, sizeof(resp), "%s;%d;%d", addr,
+             JkkMqttIsConnected() ? 1 : 0,
+             JkkMqttIsEnabled() ? 1 : 0);
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_sendstr(req, resp);
+    return ESP_OK;
+}
+
+static esp_err_t raminfo_get_handler(httpd_req_t *req) {
+    size_t dma  = heap_caps_get_free_size(MALLOC_CAP_DMA);
+    size_t iram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    size_t spi  = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    char resp[80];
+    snprintf(resp, sizeof(resp), "%u;%u;%u",
+             (unsigned)(dma / 1024), (unsigned)(iram / 1024), (unsigned)(spi / 1024));
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_sendstr(req, resp);
+    return ESP_OK;
+}
+
+httpd_uri_t uri_mqtt_save = { .uri = "/mqtt_save", .method = HTTP_POST, .handler = mqtt_save_post_handler };
+httpd_uri_t uri_mqtt_get  = { .uri = "/mqtt_status", .method = HTTP_GET, .handler = mqtt_get_handler };
+httpd_uri_t uri_raminfo   = { .uri = "/raminfo",     .method = HTTP_GET, .handler = raminfo_get_handler };
+
 #define MDNS_INSTANCE "radio jkk web server"
 #define MDNS_HOST_NAME "RadioJKK"
     
@@ -397,7 +482,7 @@ void start_web_server(void) {
     config.server_port = 80;
     config.core_id = 1; 
     config.max_open_sockets = 16;
-    config.max_uri_handlers = 16;
+    config.max_uri_handlers = 20;
     config.task_priority = tskIDLE_PRIORITY + 1;
     config.task_caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT; // MALLOC_CAP_SPIRAM // MALLOC_CAP_INTERNAL
 
@@ -418,6 +503,9 @@ void start_web_server(void) {
         httpd_register_uri_handler(server, &uri_rec_toggle);
         httpd_register_uri_handler(server, &uri_wifi_save);
         httpd_register_uri_handler(server, &uri_lcd_toggle);
+        httpd_register_uri_handler(server, &uri_mqtt_save);
+        httpd_register_uri_handler(server, &uri_mqtt_get);
+        httpd_register_uri_handler(server, &uri_raminfo);
         ESP_LOGI(TAG, "Serwer WWW uruchomiony");
 
         initialise_mdns();

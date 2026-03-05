@@ -79,6 +79,7 @@
 #include "display/jkk_lcd_port.h"
 #endif
 #include "web_server.h"
+#include "jkk_mqtt.h"
 
 static const char *TAG = "RADIO";
 
@@ -114,6 +115,7 @@ static bool using_menuconfig_wifi = false; // true when SSID/pass come from Kcon
 ESP_EVENT_DEFINE_BASE(JKK_EVT_BASE);
 typedef enum {
     JKK_EVT_SAVE_WIFI = 1,
+    JKK_EVT_MQTT_SAVE = 2,
 } jkk_evt_id_t;
 
 static void JkkApplyPendingWifiAndRestart(void) {
@@ -231,10 +233,26 @@ static void initialize_sntp(void){
 	tzset();
 }
 
+static void mqtt_start_task(void *arg)
+{
+    ESP_LOGI(TAG, "MQTT start task running");
+    JkkMqttInit();
+    vTaskDelete(NULL);
+}
+
 static void SetTimeSync_cb(struct timeval *tv){
     time_t now = 0;
     time(&now);
     ESP_LOGW(TAG, "SetTimeSync_cb %lld", now);
+
+    /* Start MQTT in separate task — callback runs in lwIP context,
+       JkkMqttInit() does blocking mDNS discovery that would stall networking */
+    static bool mqtt_started = false;
+    if (!mqtt_started) {
+        mqtt_started = true;
+        ESP_LOGI(TAG, "Time synced, spawning MQTT init task");
+        xTaskCreate(mqtt_start_task, "mqtt_init", 4096, NULL, 5, NULL);
+    }
 }
 
 static void get_device_service_name(char *service_name, size_t max){
@@ -377,6 +395,19 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 ESP_LOGI(TAG, "JKK_EVT_SAVE_WIFI received");
                 JkkApplyPendingWifiAndRestart();
                 break;
+            case JKK_EVT_MQTT_SAVE: {
+                ESP_LOGI(TAG, "JKK_EVT_MQTT_SAVE received");
+                /* Data format: "enabled_byte|broker_addr" e.g. "1|10.0.0.1:1883" or "0|" */
+                if (event_data) {
+                    const char *data = (const char *)event_data;
+                    bool enabled = (data[0] != '0');
+                    const char *addr = (strlen(data) > 2) ? &data[2] : "";
+                    JkkMqttSetEnabled(enabled);
+                    JkkMqttSetBrokerAddress(addr);
+                    ESP_LOGI(TAG, "MQTT config saved: enabled=%d, broker='%s'", enabled, addr);
+                }
+                break;
+            }
             default:
                 break;
         }
@@ -485,6 +516,7 @@ void JkkRadioSetEqualizer(uint8_t eq) {
     if(oldEq != jkkRadio.current_eq) {
         JkkAudioEqSetAll(jkkRadio.eqPresets[jkkRadio.current_eq].gain);
         JkkRadioSaveTimerStart(JKK_RADIO_TO_SAVE_EQ); // Save eq after delay to limit NVS writes
+        JkkMqttPublishState();
     }
     
     JkkRadioWwwSetEqId(jkkRadio.current_eq);
@@ -576,6 +608,8 @@ esp_err_t JkkRadioReorderStation(int oldIndex, int newIndex) {
     
     ESP_LOGI(TAG, "Station successfully moved from position %d to %d", oldIndex, newIndex);
     JkkRadioSaveTimerStart(jkkRadio.whatToDo | JKK_RADIO_TO_SAVE_STATION_LIST);
+    JkkMqttPublishState();
+    JkkMqttPublishDiscovery();
     return ESP_OK;
 }
 
@@ -618,6 +652,8 @@ void JkkRadioDeleteStation(uint16_t station){
     JkkRadioListForWWW(); 
     JkkRadioSendMessageToMain(index, JKK_RADIO_CMD_ERASE_FROM_NVS_STATION);
     JkkRadioSaveTimerStart(JKK_RADIO_TO_SAVE_STATION_LIST);
+    JkkMqttPublishState();
+    JkkMqttPublishDiscovery();
 }
 
 static void JkkRadioOneStationSave(int id) {
@@ -684,6 +720,8 @@ void JkkRadioEditStation(char *csvTxt){
         JkkRadioListForWWW(); // Update the list for web server
         JkkRadioSendMessageToMain(id, JKK_RADIO_CMD_SAVE_TO_NVS_STATION);
         JkkRadioSaveTimerStart(JKK_RADIO_TO_SAVE_STATION_LIST);
+        JkkMqttPublishState();
+        JkkMqttPublishDiscovery();
 
     } else {
         ESP_LOGE(TAG, "Invalid station ID");
@@ -704,6 +742,7 @@ static void JkkRadioUpdateVolume(void){
 #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
     JkkLcdVolumeInt(jkkRadio.player_volume);
 #endif
+    JkkMqttPublishState();
 }
 
 void JkkRadioSetVolume(uint8_t vol){
@@ -913,6 +952,7 @@ static void JkkChangeEq(int eqN){
     if(oldEq != jkkRadio.current_eq){
         JkkAudioEqSetAll(jkkRadio.eqPresets[jkkRadio.current_eq].gain);
         JkkRadioSaveTimerStart(JKK_RADIO_TO_SAVE_EQ);
+        JkkMqttPublishState();
     }
 }
 
@@ -1021,6 +1061,7 @@ void JkkRadioSetStation(uint16_t station){
                 JkkLcdShowRoller(true, jkkRadio.current_station, JKK_ROLLER_MODE_STATION_LIST);
             }
 #endif
+            JkkMqttPublishState();
         }
     }
 }
@@ -1063,6 +1104,7 @@ static void SaveTimerHandle(TimerHandle_t xTimer){
     if(jkkRadio.whatToDo & JKK_RADIO_TO_DO_LCD_OFF) {
         JkkLcdPortOnOffLcd(false);
         jkkRadio.whatToDo &= ~JKK_RADIO_TO_DO_LCD_OFF;
+        JkkMqttPublishState();
     }
     JkkLcdIpTxt("");
 #endif
@@ -1073,8 +1115,45 @@ void JkkRadioLcdOn(void) {
     if(JkkLcdPortOnOffLcd(true)) {
         jkkRadio.whatToDo &= ~JKK_RADIO_TO_DO_LCD_OFF;
     }
+    JkkMqttPublishState();
 }
 #endif
+
+/* ── Getters for MQTT / external modules ─────────────────── */
+
+int JkkRadioGetVolume(void) {
+    return jkkRadio.player_volume;
+}
+
+int JkkRadioGetStation(void) {
+    return jkkRadio.current_station;
+}
+
+int JkkRadioGetStationCount(void) {
+    return jkkRadio.station_count;
+}
+
+const char *JkkRadioGetStationName(int idx) {
+    if (idx < 0 || idx >= jkkRadio.station_count || !jkkRadio.jkkRadioStations) return NULL;
+    return jkkRadio.jkkRadioStations[idx].nameLong;
+}
+
+int JkkRadioGetEq(void) {
+    return jkkRadio.current_eq;
+}
+
+int JkkRadioGetEqCount(void) {
+    return jkkRadio.eq_count;
+}
+
+const char *JkkRadioGetEqName(int idx) {
+    if (idx < 0 || idx >= jkkRadio.eq_count || !jkkRadio.eqPresets) return NULL;
+    return jkkRadio.eqPresets[idx].name;
+}
+
+bool JkkRadioIsRecording(void) {
+    return jkkRadio.audioSdWrite && jkkRadio.audioSdWrite->is_recording;
+}
 
 esp_err_t JkkRadioSaveTimerStart(toSave_e toSave) {
     if(jkkRadio.waitTimer_h == NULL) {
@@ -1122,6 +1201,7 @@ void JkkRadioPlay(void) {
         JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
     }
 #endif
+    JkkMqttPublishState();
 }
 
 void JkkRadioPause(void) {
@@ -1145,6 +1225,7 @@ void JkkRadioPause(void) {
         JkkRadioSaveTimerStart(JKK_RADIO_TO_DO_LCD_OFF);
     }
 #endif
+    JkkMqttPublishState();
 }
 
 void JkkRadioStop(void) {
@@ -1167,6 +1248,7 @@ void JkkRadioStop(void) {
     JkkLcdVolumeIndicatorCallback(0,0);
     JkkRadioSaveTimerStart(JKK_RADIO_TO_DO_LCD_OFF);
 #endif
+    JkkMqttPublishState();
 }
 
 void JkkRadioTogglePlayPause(void) {
@@ -1257,7 +1339,8 @@ void JkkToggleRecording(int command) {
             return ;
         }
         JkkRadioWwwUpdateRecording(1);
-    } 
+    }
+    JkkMqttPublishState();
 }
 
 static void MainAppTask(void *arg){
@@ -1368,6 +1451,7 @@ static void MainAppTask(void *arg){
     ESP_ERROR_CHECK(esp_event_handler_register(PROTOCOMM_SECURITY_SESSION_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(JKK_EVT_BASE, JKK_EVT_SAVE_WIFI, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(JKK_EVT_BASE, JKK_EVT_MQTT_SAVE, &event_handler, NULL));
 #ifdef CONFIG_JKK_PROV_TRANSPORT_SOFTAP
     // Create default AP netif only if not present (provisioning softAP)
     if (!esp_netif_get_handle_from_ifkey("WIFI_AP_DEF")) {
@@ -1431,6 +1515,10 @@ static void MainAppTask(void *arg){
         JkkLcdStationTxt(jkkRadio.jkkRadioStations[jkkRadio.current_station].nameLong);
 #endif
         JkkRadioWwwSetStationId(jkkRadio.current_station);
+
+        /* SNTP init first — MQTT will start from SetTimeSync_cb after time syncs */
+        sntp_set_time_sync_notification_cb(SetTimeSync_cb);
+        initialize_sntp();
     }
     else {
     #if defined(CONFIG_JKK_RADIO_USING_I2C_LCD) 
@@ -1446,9 +1534,6 @@ static void MainAppTask(void *arg){
 
     ESP_LOGI(TAG, "Initialize keys on board");
     audio_board_key_init(jkkRadio.set);
-
-    sntp_set_time_sync_notification_cb(SetTimeSync_cb);
-    initialize_sntp();
 
     ESP_LOGI(TAG, "Connect input ringbuffer of pipeline_save to http stream multi output");
     ringbuf_handle_t rb = audio_element_get_output_ringbuf(jkkRadio.audioSdWrite->raw_read);
@@ -1611,6 +1696,14 @@ static void MainAppTask(void *arg){
                 ESP_LOGW(TAG, "JKK_RADIO_CMD_STOP"); 
                 JkkRadioStop();
             }
+            else if(msg.cmd == JKK_RADIO_CMD_PLAY){
+                ESP_LOGW(TAG, "JKK_RADIO_CMD_PLAY"); 
+                JkkRadioPlay();
+            }
+            else if(msg.cmd == JKK_RADIO_CMD_PAUSE){
+                ESP_LOGW(TAG, "JKK_RADIO_CMD_PAUSE"); 
+                JkkRadioPause();
+            }
             else if(msg.cmd == JKK_RADIO_CMD_SAVE_WIFI){
                 char ssid[32] = {0};
                 char pass[64] = {0};
@@ -1641,6 +1734,7 @@ static void MainAppTask(void *arg){
             
             ESP_LOGW(TAG, "Stop write stream"); 
             JkkRadioStopRecording();
+            JkkMqttPublishState();
             continue;
         }
 
@@ -1735,6 +1829,7 @@ static void MainAppTask(void *arg){
                     else{
                         JkkRadioStartRecording();
                     }
+                    JkkMqttPublishState();
                 }
             } else if ((int)msg.data == get_input_mode_id()) {
                 jkkRollerMode_t rollerMode = JkkLcdRollerMode();
@@ -1841,9 +1936,11 @@ static void MainAppTask(void *arg){
                         continue;
                     }
                     JkkRadioStartRecording();
+                    JkkMqttPublishState();
                 }
                 else if(msg.cmd == PERIPH_BUTTON_LONG_PRESSED){
                     JkkRadioStopRecording();
+                    JkkMqttPublishState();
                 }
              } else if ((int)msg.data == get_input_volup_id()) {
             

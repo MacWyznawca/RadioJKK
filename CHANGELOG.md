@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.1] - 2026-03-05
+## [1.2.0] - 2026-03-05
+
+### Added
+- **Home Assistant integration via MQTT** – automatic device discovery with station, equalizer, volume, play/stop, recording and LCD entities.
+- MQTT broker auto-discovery via mDNS; manual broker address configurable from the web interface.
+- Free RAM info in the web interface – DMA, Internal and SPIRAM with manual refresh button.
+
+## [1.1.1] - 2026-03-04
 
 ### Fixed
 - Problem with storing volume levels greater than 63% solved.

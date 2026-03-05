@@ -4,7 +4,14 @@
 
 ## 🌟 Main Features
 
-### 🌐 **Local Web Server - NEW!**
+### 🏠 **Home Assistant Integration via MQTT - NEW!**
+
+- **Automatic MQTT discovery** – entities appear in Home Assistant without manual YAML configuration
+- **Full control** – station, equalizer, volume, play/stop, recording, LCD on/off
+- **Real-time state sync** – all changes (from buttons, web, or HA) are instantly reflected everywhere
+- **Easy setup** – broker found automatically via mDNS or set manually in the web interface
+
+### 🌐 **Local Web Server**
 
 - **Remote control** via a web browser: volume, station selection, equalizer adjustment
 - **Dedicated LCD on/off button** in the web interface for manual display control (visible only if display is present)
@@ -13,16 +20,6 @@
 - **Responsive interface** that works on all devices  
 - **Local access** without the need for an Internet connection  
 - **Automatic SD card save** of the current station list  
-
-### Other Updates
-
-- Reorder radio stations via the web interface  
-- Automatically save the current station list from device flash memory (NVS) to the SD card  
-- Download the current station list in `.csv` format via the browser  
-- Equalizer selection via the web interface  
-- Increased maximum number of stations to 50  
-- Increased maximum number of equalizers to 20  
-- More built-in equalizers (10 total)
 
 ### 📻 Audio Playback
 
@@ -63,6 +60,7 @@
 ### 🔗 Connectivity
 
 - **WiFi** with automatic provisioning via ESP SoftAP Prov app
+- **MQTT** for Home Assistant integration (auto-discovery via mDNS or manual broker address)
 - **mDNS/Bonjour, NetBIOS** for easy network discovery
 - **SNTP** for time synchronization
 - Configuration support via ESP SoftAP app
@@ -206,7 +204,39 @@ Always 10 EQ values in dB.
 - 📋 **Station selection** with full list
 - 📋 **Edit station list** without physical access
 
-## 🎠 Button Controls (OLED-less Mode)
+## � Home Assistant Integration
+
+RadioJKK supports automatic integration with **Home Assistant** via MQTT discovery. All entities are created automatically — no manual YAML configuration needed.
+
+![RadioJKK in Home Assistant](img/RadioJKK_HA.png)
+
+### Discovered Entities
+
+| Entity | Type | Description |
+|--------|------|-------------|
+| Station | Select | Choose from the configured station list |
+| Equalizer | Select | Choose equalizer preset |
+| Volume | Number | Volume level 0–100% |
+| Playback | Switch | Play / Stop with state indicator |
+| Recording | Switch | Start / Stop recording to SD card |
+| LCD | Switch | Display on / off |
+
+### MQTT Broker Configuration
+
+RadioJKK discovers the MQTT broker automatically via **mDNS** (service `_mqtt._tcp`). If your broker advertises this service (e.g. Mosquitto with Avahi), no manual configuration is needed.
+
+To set the broker address manually:
+
+1. Open the web interface: `http://radiojkk32.local`
+2. Enter the MQTT broker address (e.g. `mqtt://192.168.1.100:1883`)
+3. Save — the device will connect to the specified broker
+
+### Requirements
+
+- **MQTT broker** (e.g. Mosquitto) accessible on the local network
+- **Home Assistant** with [MQTT integration](https://www.home-assistant.io/integrations/mqtt/) enabled and connected to the same broker
+
+## �🎠 Button Controls (OLED-less Mode)
 
 | Button        | Short Press          | Long Press         |
 | ------------- | -------------------- | ------------------ |

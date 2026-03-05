@@ -6,6 +6,7 @@ set(srcs  "radio_jkk.c"
                     "jkk_nvs.c"
                     "jkk_settings.c"
                     "web_server.c"
+                    "jkk_mqtt.c"
                    )
 
 if(CONFIG_JKK_RADIO_USING_I2C_LCD)

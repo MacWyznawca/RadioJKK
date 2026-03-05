@@ -4,7 +4,14 @@
 
 ## 🌟 Główne funkcje
 
-### 🌐 **Lokalny serwer WWW - NOWOŚĆ!**
+### 🏠 **Integracja z Home Assistant przez MQTT - NOWOŚĆ!**
+
+- **Automatyczne wykrywanie MQTT** – encje pojawiają się w Home Assistant bez ręcznej konfiguracji YAML
+- **Pełna kontrola** – stacja, equalizer, głośność, odtwarzanie/stop, nagrywanie, LCD on/off
+- **Synchronizacja stanu w czasie rzeczywistym** – zmiany z przycisków, WWW lub HA są natychmiast widoczne wszędzie
+- **Łatwa konfiguracja** – broker odnajdywany automatycznie przez mDNS lub ustawiany ręcznie w interfejsie WWW
+
+### 🌐 **Lokalny serwer WWW**
 
 - **Zdalne sterowanie** przez przeglądarkę internetową: głośność, wybór stacji, zmiana equalizera
 - **Dedykowany przycisk LCD on/off** w interfejsie WWW do ręcznego włączania/wyłączania wyświetlacza (widoczny tylko gdy wyświetlacz jest obecny)
@@ -13,16 +20,6 @@
 - **Responsywny interfejs** działający na wszystkich urządzeniach
 - **Dostęp lokalny** bez potrzeby połączenia z Internetem
 - **Automatyczny zapis na karcie SD** aktualnej listy stacji
-
-### Inne nowości
-
-- Zmiana kolejności stacji radiowych przez WWW
-- Automatyczny zapis aktualnej listy stacji z pamięci flash urządzenia (NVS) na kartę SD
-- Możliwość pobrania aktualnej listy stacji w formacie .csv przez przeglądarkę
-- Wybór equalizera w przeglądarce
-- Zwiększona maksymalna liczba stacji do 50
-- Maksymalna liczba equalizerów zwiększona do 20
-- Więcej wbudowanych equalizerów (10)
 
 ### 📻 Odtwarzanie audio
 
@@ -63,6 +60,7 @@
 ### 🔗 Łączność
 
 - **WiFi** z automatycznym provisioningiem przez aplikację ESP SoftAP Prov
+- **MQTT** do integracji z Home Assistant (auto-discovery przez mDNS lub ręczny adres brokera)
 - **mDNS/Bonjour, NetBIOS** dla łatwego odnajdywania w sieci
 - **SNTP** dla synchronizacji czasu
 - Obsługa konfiguracji przez aplikację ESP SoftAP
@@ -210,7 +208,39 @@ Zawsze 10 ustawień korekcji w dB.
 - 📋 **Zmiana stacji** z pełną listą dostępnych opcji
 - 📋 **Edycja listy stacji** bez potrzeby fizycznego dostępu
 
-## 🎠 Obsługa przycisków (tryb bez OLED)
+## � Integracja z Home Assistant
+
+RadioJKK wspiera automatyczną integrację z **Home Assistant** przez MQTT discovery. Wszystkie encje tworzone są automatycznie — bez konieczności ręcznej konfiguracji YAML.
+
+![RadioJKK w Home Assistant](img/RadioJKK_HA.png)
+
+### Wykrywane encje
+
+| Encja | Typ | Opis |
+|-------|-----|------|
+| Stacja | Select | Wybór z listy skonfigurowanych stacji |
+| Equalizer | Select | Wybór presetu equalizera |
+| Głośność | Number | Poziom głośności 0–100% |
+| Odtwarzanie | Switch | Play / Stop ze wskaźnikiem stanu |
+| Nagrywanie | Switch | Start / Stop nagrywania na kartę SD |
+| LCD | Switch | Włączanie / wyłączanie wyświetlacza |
+
+### Konfiguracja brokera MQTT
+
+RadioJKK automatycznie odnajduje broker MQTT przez **mDNS** (usługa `_mqtt._tcp`). Jeśli Twój broker ogłasza tę usługę (np. Mosquitto z Avahi), żadna ręczna konfiguracja nie jest potrzebna.
+
+Aby ustawić adres brokera ręcznie:
+
+1. Otwórz interfejs WWW: `http://radiojkk32.local`
+2. Wpisz adres brokera MQTT (np. `mqtt://192.168.1.100:1883`)
+3. Zapisz — urządzenie połączy się ze wskazanym brokerem
+
+### Wymagania
+
+- **Broker MQTT** (np. Mosquitto) dostępny w sieci lokalnej
+- **Home Assistant** z włączoną [integracją MQTT](https://www.home-assistant.io/integrations/mqtt/) podłączoną do tego samego brokera
+
+## �🎠 Obsługa przycisków (tryb bez OLED)
 
 | Przycisk      | Krótkie naciśnięcie | Długie naciśnięcie |
 | ------------- | ------------------- | ------------------ |
