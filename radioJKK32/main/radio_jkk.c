@@ -397,14 +397,28 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 break;
             case JKK_EVT_MQTT_SAVE: {
                 ESP_LOGI(TAG, "JKK_EVT_MQTT_SAVE received");
-                /* Data format: "enabled_byte|broker_addr" e.g. "1|10.0.0.1:1883" or "0|" */
+                /* Data format: "enabled|broker|user|pass" separated by '|' */
                 if (event_data) {
                     const char *data = (const char *)event_data;
-                    bool enabled = (data[0] != '0');
-                    const char *addr = (strlen(data) > 2) ? &data[2] : "";
+                    /* Parse up to 4 pipe-separated fields */
+                    char buf[256];
+                    strlcpy(buf, data, sizeof(buf));
+                    char *fields[4] = {NULL, NULL, NULL, NULL};
+                    int fi = 0;
+                    fields[0] = buf;
+                    for (char *p = buf; *p && fi < 3; p++) {
+                        if (*p == '|') { *p = '\0'; fields[++fi] = p + 1; }
+                    }
+                    bool enabled = fields[0] && (fields[0][0] != '0');
+                    const char *addr = (fields[1] && strlen(fields[1]) > 0) ? fields[1] : "";
+                    const char *user = (fields[2] && strlen(fields[2]) > 0) ? fields[2] : "";
+                    const char *pass = (fields[3] && strlen(fields[3]) > 0) ? fields[3] : "";
                     JkkMqttSetEnabled(enabled);
                     JkkMqttSetBrokerAddress(addr);
-                    ESP_LOGI(TAG, "MQTT config saved: enabled=%d, broker='%s'", enabled, addr);
+                    JkkMqttSetCredentials(user, pass);
+                    ESP_LOGI(TAG, "MQTT config saved: enabled=%d, broker='%s', user='%s'", enabled, addr, user);
+                    /* Reconnect with new settings (no restart needed) */
+                    JkkMqttReconnect();
                 }
                 break;
             }

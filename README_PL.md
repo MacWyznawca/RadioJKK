@@ -233,7 +233,8 @@ Aby ustawić adres brokera ręcznie:
 
 1. Otwórz interfejs WWW: `http://radiojkk32.local`
 2. Wpisz adres brokera MQTT (np. `mqtt://192.168.1.100:1883`)
-3. Zapisz — urządzenie połączy się ze wskazanym brokerem
+3. Opcjonalnie wpisz **Użytkownika** i **Hasło**, jeśli broker wymaga autoryzacji
+4. Zapisz — urządzenie natychmiast połączy się ponownie z nowymi ustawieniami (restart nie jest potrzebny)
 
 ### Wymagania
 

@@ -14,6 +14,8 @@ extern "C" {
 
 #define JKK_MQTT_NVS_KEY_BROKER  "mqtt_broker"
 #define JKK_MQTT_NVS_KEY_ENABLED "mqtt_on"
+#define JKK_MQTT_NVS_KEY_USER    "mqtt_user"
+#define JKK_MQTT_NVS_KEY_PASS    "mqtt_pass"
 
 /**
  * @brief Set MQTT enabled/disabled state (saved to NVS).
@@ -72,6 +74,29 @@ esp_err_t JkkMqttSetBrokerAddress(const char *address);
  * @return ESP_OK on success, ESP_ERR_NOT_FOUND if not set
  */
 esp_err_t JkkMqttGetBrokerAddress(char *address, size_t len);
+
+/**
+ * @brief Store MQTT credentials in NVS.
+ * Pass NULL or empty string to clear.
+ */
+esp_err_t JkkMqttSetCredentials(const char *user, const char *pass);
+
+/**
+ * @brief Read MQTT username from RAM cache.
+ */
+esp_err_t JkkMqttGetUsername(char *buf, size_t len);
+
+/**
+ * @brief Read MQTT password from RAM cache.
+ */
+esp_err_t JkkMqttGetPassword(char *buf, size_t len);
+
+/**
+ * @brief Reconnect MQTT client with current settings.
+ * Stops existing client and starts a new one using RAM-cached config.
+ * Safe to call from internal-RAM task (event handler).
+ */
+void JkkMqttReconnect(void);
 
 #ifdef __cplusplus
 }

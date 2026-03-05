@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Home Assistant integration via MQTT** – automatic device discovery with station, equalizer, volume, play/stop, recording and LCD entities.
 - MQTT broker auto-discovery via mDNS; manual broker address configurable from the web interface.
+- MQTT username/password authentication – configurable from the web interface.
+- Automatic MQTT reconnect after saving new settings (no device restart needed).
 - Free RAM info in the web interface – DMA, Internal and SPIRAM with manual refresh button.
 
 ## [1.1.1] - 2026-03-04

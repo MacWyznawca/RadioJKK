@@ -48,6 +48,8 @@ static esp_mqtt_client_handle_t s_mqtt_client = NULL;
 static bool s_mqtt_connected = false;
 static bool s_mqtt_enabled = true;           // RAM cache (default: enabled)
 static char s_broker_addr[80] = "";         // RAM cache for broker address
+static char s_mqtt_user[33]  = "";          // RAM cache for MQTT username
+static char s_mqtt_pass[65]  = "";          // RAM cache for MQTT password
 static char s_uid[20]       = "";   // "rjkk_AABBCCDDEEFF"
 static char s_mac_id[14]    = "";   // "AABBCCDDEEFF"
 static char s_mac_str[18]   = "";   // "AA:BB:CC:DD:EE:FF"
@@ -62,6 +64,7 @@ static char s_topic_vol_cmd[48]   = ""; // "rjkk/AABBCCDDEEFF/vol_cmd"
 static void mqtt_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data);
 static void mqtt_publish_discovery(void);
 static void mqtt_handle_command(const char *payload, int len);
+static esp_err_t mqtt_start_client(void);
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
@@ -179,6 +182,53 @@ esp_err_t JkkMqttGetBrokerAddress(char *address, size_t len)
     /* Return cached value — safe to call from PSRAM httpd task */
     if (s_broker_addr[0] != '\0') {
         strlcpy(address, s_broker_addr, len);
+        return ESP_OK;
+    }
+    return ESP_ERR_NOT_FOUND;
+}
+
+/* ── NVS MQTT credentials ────────────────────────────────── */
+
+esp_err_t JkkMqttSetCredentials(const char *user, const char *pass)
+{
+    /* Update RAM cache */
+    if (user && strlen(user) > 0)
+        strlcpy(s_mqtt_user, user, sizeof(s_mqtt_user));
+    else
+        s_mqtt_user[0] = '\0';
+
+    if (pass && strlen(pass) > 0)
+        strlcpy(s_mqtt_pass, pass, sizeof(s_mqtt_pass));
+    else
+        s_mqtt_pass[0] = '\0';
+
+    /* Persist to NVS */
+    if (s_mqtt_user[0])
+        JkkNvsBlobSet(JKK_MQTT_NVS_KEY_USER, MQTT_NVS_NAMESPACE, s_mqtt_user, strlen(s_mqtt_user) + 1);
+    else
+        JkkNvsErase(JKK_MQTT_NVS_KEY_USER, MQTT_NVS_NAMESPACE);
+
+    if (s_mqtt_pass[0])
+        JkkNvsBlobSet(JKK_MQTT_NVS_KEY_PASS, MQTT_NVS_NAMESPACE, s_mqtt_pass, strlen(s_mqtt_pass) + 1);
+    else
+        JkkNvsErase(JKK_MQTT_NVS_KEY_PASS, MQTT_NVS_NAMESPACE);
+
+    return ESP_OK;
+}
+
+esp_err_t JkkMqttGetUsername(char *buf, size_t len)
+{
+    if (s_mqtt_user[0] != '\0') {
+        strlcpy(buf, s_mqtt_user, len);
+        return ESP_OK;
+    }
+    return ESP_ERR_NOT_FOUND;
+}
+
+esp_err_t JkkMqttGetPassword(char *buf, size_t len)
+{
+    if (s_mqtt_pass[0] != '\0') {
+        strlcpy(buf, s_mqtt_pass, len);
         return ESP_OK;
     }
     return ESP_ERR_NOT_FOUND;
@@ -694,6 +744,22 @@ esp_err_t JkkMqttInit(void)
         } else {
             s_broker_addr[0] = '\0';
         }
+
+        /* Load credentials */
+        size_t ulen = sizeof(s_mqtt_user);
+        if (JkkNvsBlobGet(JKK_MQTT_NVS_KEY_USER, MQTT_NVS_NAMESPACE,
+                          s_mqtt_user, &ulen) == ESP_OK && ulen > 0) {
+            s_mqtt_user[ulen - 1] = '\0';
+        } else {
+            s_mqtt_user[0] = '\0';
+        }
+        size_t plen = sizeof(s_mqtt_pass);
+        if (JkkNvsBlobGet(JKK_MQTT_NVS_KEY_PASS, MQTT_NVS_NAMESPACE,
+                          s_mqtt_pass, &plen) == ESP_OK && plen > 0) {
+            s_mqtt_pass[plen - 1] = '\0';
+        } else {
+            s_mqtt_pass[0] = '\0';
+        }
     }
 
     if (!s_mqtt_enabled) {
@@ -701,8 +767,18 @@ esp_err_t JkkMqttInit(void)
         return ESP_OK;
     }
 
+    return mqtt_start_client();
+}
+
+/**
+ * Internal: create and start MQTT client using current RAM-cached config.
+ * Separated from JkkMqttInit() so JkkMqttReconnect() can reuse it
+ * without reloading NVS.
+ */
+static esp_err_t mqtt_start_client(void)
+{
     build_identifiers();
-    ESP_LOGI(TAG, "MQTT init: uid=%s", s_uid);
+    ESP_LOGI(TAG, "MQTT start: uid=%s", s_uid);
 
     char broker_host[64] = "";
     uint16_t broker_port = MQTT_DEFAULT_PORT;
@@ -742,8 +818,8 @@ esp_err_t JkkMqttInit(void)
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker.address.uri = s_broker_uri,
         .broker.address.port = broker_port,
-        .credentials.username = "luon",
-        .credentials.authentication.password = "luon",
+        .credentials.username = s_mqtt_user[0] ? s_mqtt_user : NULL,
+        .credentials.authentication.password = s_mqtt_pass[0] ? s_mqtt_pass : NULL,
         .credentials.client_id = s_uid,
         .network.disable_auto_reconnect = false,
         .session.last_will = {
@@ -771,4 +847,32 @@ esp_err_t JkkMqttInit(void)
 
     ESP_LOGI(TAG, "MQTT klient uruchomiony -> %s:%d", broker_host, broker_port);
     return ESP_OK;
+}
+
+/* ── Reconnect (stop + re-init with current RAM cache) ──── */
+
+void JkkMqttReconnect(void)
+{
+    ESP_LOGI(TAG, "MQTT reconnect requested");
+
+    /* Stop and destroy existing client */
+    if (s_mqtt_client) {
+        /* Publish offline before disconnect */
+        if (s_mqtt_connected) {
+            esp_mqtt_client_publish(s_mqtt_client, s_topic_avty, "offline", 7, 1, 1);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        esp_mqtt_client_stop(s_mqtt_client);
+        esp_mqtt_client_destroy(s_mqtt_client);
+        s_mqtt_client = NULL;
+        s_mqtt_connected = false;
+    }
+
+    if (!s_mqtt_enabled) {
+        ESP_LOGI(TAG, "MQTT wyłączony — klient zatrzymany");
+        return;
+    }
+
+    /* Re-start with current RAM-cached settings (NVS already saved) */
+    mqtt_start_client();
 }

@@ -377,11 +377,11 @@ httpd_uri_t uri_lcd_toggle = { .uri = "/lcd_toggle", .method = HTTP_POST, .handl
 
 static esp_err_t mqtt_save_post_handler(httpd_req_t *req) {
     int total_len = req->content_len;
-    if (total_len <= 0 || total_len > 128) {
+    if (total_len <= 0 || total_len > 256) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid length");
         return ESP_FAIL;
     }
-    char buf[136] = {0};
+    char buf[264] = {0};
     if (httpd_req_recv(req, buf, MIN(sizeof(buf) - 1, total_len)) <= 0) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Recv error");
         return ESP_FAIL;
@@ -408,14 +408,31 @@ static esp_err_t mqtt_save_post_handler(httpd_req_t *req) {
         enabled_ch = (atoi(en_ptr + 8) != 0) ? '1' : '0';
     }
 
+    /* Extract user */
+    char user_raw[40] = {0};
+    char *user_ptr = strstr(buf, "user=");
+    if (user_ptr) {
+        char *ua = strchr(user_ptr + 5, '&');
+        size_t ul = ua ? (size_t)(ua - (user_ptr + 5)) : strlen(user_ptr + 5);
+        url_decode(user_raw, user_ptr + 5, ul);
+    }
+    /* Extract pass */
+    char pass_raw[68] = {0};
+    char *pass_ptr = strstr(buf, "pass=");
+    if (pass_ptr) {
+        char *pa = strchr(pass_ptr + 5, '&');
+        size_t pl = pa ? (size_t)(pa - (pass_ptr + 5)) : strlen(pass_ptr + 5);
+        url_decode(pass_raw, pass_ptr + 5, pl);
+    }
+
     /* Defer NVS write to internal RAM task (httpd runs on PSRAM stack → flash write crashes) */
-    char evt_data[96];
-    snprintf(evt_data, sizeof(evt_data), "%c|%s", enabled_ch, p);
+    char evt_data[256];
+    snprintf(evt_data, sizeof(evt_data), "%c|%s|%s|%s", enabled_ch, p, user_raw, pass_raw);
     esp_err_t post_ret = esp_event_post(JKK_EVT_BASE, JKK_EVT_MQTT_SAVE,
                                          evt_data, strlen(evt_data) + 1, pdMS_TO_TICKS(100));
     if (post_ret == ESP_OK) {
         httpd_resp_set_type(req, "text/plain");
-        httpd_resp_sendstr(req, strlen(p) ? "MQTT broker saved" : "MQTT broker cleared");
+        httpd_resp_sendstr(req, strlen(p) ? "MQTT config saved" : "MQTT config cleared");
     } else {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Event post error");
     }
@@ -427,11 +444,14 @@ static esp_err_t mqtt_get_handler(httpd_req_t *req) {
     if (JkkMqttGetBrokerAddress(addr, sizeof(addr)) != ESP_OK) {
         addr[0] = '\0';
     }
-    /* Format: broker_addr;connected;enabled */
-    char resp[100];
-    snprintf(resp, sizeof(resp), "%s;%d;%d", addr,
+    char user[40] = {0};
+    if (JkkMqttGetUsername(user, sizeof(user)) != ESP_OK) user[0] = '\0';
+    /* Format: broker_addr;connected;enabled;user */
+    char resp[160];
+    snprintf(resp, sizeof(resp), "%s;%d;%d;%s", addr,
              JkkMqttIsConnected() ? 1 : 0,
-             JkkMqttIsEnabled() ? 1 : 0);
+             JkkMqttIsEnabled() ? 1 : 0,
+             user);
     httpd_resp_set_type(req, "text/plain");
     httpd_resp_sendstr(req, resp);
     return ESP_OK;

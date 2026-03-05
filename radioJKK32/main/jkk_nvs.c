@@ -51,12 +51,13 @@ esp_err_t JkkNvsBlobGet(const char *key, const char *nameSpace, void *value, siz
         ESP_LOGI(TAG, "Read from NVS ... ");
         size_t lenTmp = 0;
         ret = nvs_get_blob(nvsHandle, key, NULL, &lenTmp);
-        if (length != NULL && *length > 0 && *length != lenTmp) {
-            ESP_LOGE(TAG, "Length mismatch: expected %d, got %d", *length, lenTmp);
+        if (length != NULL && *length > 0 && *length < lenTmp) {
+            ESP_LOGE(TAG, "Buffer too small: have %d, need %d", *length, lenTmp);
             nvs_close(nvsHandle);
             return ESP_ERR_NVS_INVALID_LENGTH;
         }
         ret = nvs_get_blob(nvsHandle, key, value, &lenTmp);
+        if (length != NULL) *length = lenTmp;
         ESP_LOGI(TAG, "Operation %s", (ret == ESP_OK) ? "Done" : "Failed");
         nvs_close(nvsHandle);
     }

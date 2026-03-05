@@ -1076,6 +1076,14 @@
             <label for="mqtt-broker">Broker address (host or host:port)</label>
             <input id="mqtt-broker" type="text" maxlength="79" placeholder="empty = mDNS auto-discovery">
         </div>
+        <div class="form-group">
+            <label for="mqtt-user">Username (optional)</label>
+            <input id="mqtt-user" type="text" maxlength="32" placeholder="empty = no auth">
+        </div>
+        <div class="form-group">
+            <label for="mqtt-pass">Password (optional)</label>
+            <input id="mqtt-pass" type="password" maxlength="64" placeholder="empty = no auth">
+        </div>
         <div class="form-buttons">
             <button onclick="saveMqtt()">💾 Save</button>
             <button onclick="loadMqtt()" style="background:#555;">🔄 Refresh</button>
@@ -1087,10 +1095,12 @@
     function saveMqtt() {
         const broker = document.getElementById('mqtt-broker').value.trim();
         const enabled = document.getElementById('mqtt-enabled').checked ? 1 : 0;
+        const user = document.getElementById('mqtt-user').value.trim();
+        const pass = document.getElementById('mqtt-pass').value;
         const msg = document.getElementById('mqtt-msg');
         msg.textContent = 'Saving...';
         msg.style.color = '#333';
-        const body = `broker=${encodeURIComponent(broker)}&enabled=${enabled}`;
+        const body = `broker=${encodeURIComponent(broker)}&enabled=${enabled}&user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`;
         fetch('/mqtt_save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1104,12 +1114,14 @@
         fetch('/mqtt_status')
         .then(r => r.text())
         .then(t => {
-            // Format: broker_addr;connected;enabled
+            // Format: broker_addr;connected;enabled;user
             const parts = t.split(';');
             document.getElementById('mqtt-broker').value = parts[0] || '';
             const connected = parts[1] === '1';
             const enabled = parts[2] !== '0';
             document.getElementById('mqtt-enabled').checked = enabled;
+            document.getElementById('mqtt-user').value = parts[3] || '';
+            document.getElementById('mqtt-pass').value = '';  // never echo password
             const msg = document.getElementById('mqtt-msg');
             if (!enabled) {
                 msg.textContent = 'MQTT disabled';
